@@ -7,8 +7,8 @@ OBJDIR=./out
 SRCS=$(wildcard *.cpp)
 OBJS=$(patsubst %.cpp,$(OBJDIR)/%.o,$(SRCS))
 $(PROJECT):$(OBJS)
-	$(GCC) -o $@ $^ $(CFLAG) $(SYSLIB) $(MYLIB)
+	$(GCC) -o $(OBJDIR)/$@ $^ $(CFLAG) $(SYSLIB) $(MYLIB)
 $(OBJDIR)/%.o:%.cpp
 	$(GCC) $(CFLAG) -c -o $@ $<
 clean :
-	rm remote $(OBJS)
+	rm -rf $(OBJDIR)/*
