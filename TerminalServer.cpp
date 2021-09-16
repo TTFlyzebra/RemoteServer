@@ -29,14 +29,13 @@ TerminalServer::~TerminalServer()
     mManager->unRegisterListener(this);
     pthread_mutex_lock(&mLock);
     for (std::list<TerminalClient*>::iterator it = terminal_clients.begin(); it != terminal_clients.end(); ++it) {
-        ((TerminalClient*)*it)->stop();
         delete ((TerminalClient*)*it);
     }
     terminal_clients.clear();
     pthread_mutex_unlock(&mLock);
 }
 
-void TerminalServer::notify(int64_t id, char* data, int32_t size)
+void TerminalServer::notify(int64_t session, char* data, int32_t size)
 {
 
 }
@@ -82,7 +81,7 @@ void *TerminalServer::_server_socket(void *argv)
         }
         if(p->is_stop) break;
 
-        TerminalClient *client = new TerminalClient(p->mManager, client_socket);
+        TerminalClient *client = new TerminalClient(p, p->mManager, client_socket);
         pthread_mutex_lock(&p->mLock);
         p->terminal_clients.push_back(client);
         pthread_mutex_unlock(&p->mLock);
@@ -96,7 +95,7 @@ void *TerminalServer::_server_socket(void *argv)
 	return 0;
 }
 
-void TerminalServer::disconnect_client(TerminalClient* client)
+void TerminalServer::disconnectClient(TerminalClient* client)
 {
      pthread_mutex_lock(&mLock);
      terminal_clients.remove(client);

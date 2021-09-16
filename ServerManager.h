@@ -10,8 +10,8 @@
 #include <pthread.h>
 
 class INotify{
-protected:
-    virtual void notify(int64_t id, char* data, int32_t size) {};
+public:
+    virtual void notify(int64_t session, char* data, int32_t size) {};
 };
 
 class ServerManager {
@@ -20,7 +20,7 @@ public:
     ~ServerManager();
     void registerListener(INotify* notify);
     void unRegisterListener(INotify* notify);
-    void update(int32_t type, char* data, int32_t size);
+    void update(int64_t session, char* data, int32_t size);
 
 private:
     std::list<INotify*> notifyList;

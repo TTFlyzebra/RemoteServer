@@ -16,13 +16,13 @@ public:
     ~TerminalServer();
     void start();
     void stop();
+    void disconnectClient(TerminalClient *client);
 
-protected:
-    virtual void notify(int64_t id, char* data, int32_t size);
+public:
+    virtual void notify(int64_t session, char* data, int32_t size);
 
 private:
     static void *_server_socket(void *arg);
-    void disconnect_client(TerminalClient *client);
 
 private:
     ServerManager* mManager;

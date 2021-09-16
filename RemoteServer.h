@@ -16,8 +16,8 @@ public:
     void start();
     void stop();
 
-protected:
-    virtual void notify(int64_t id, char* data, int32_t size);
+public:
+    virtual void notify(int64_t session, char* data, int32_t size);
 
 private:
     static void *_server_socket(void *arg);

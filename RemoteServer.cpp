@@ -29,7 +29,7 @@ RemoteServer::~RemoteServer()
     mManager->unRegisterListener(this);
 }
 
-void RemoteServer::notify(int64_t id, char* data, int32_t size)
+void RemoteServer::notify(int64_t session, char* data, int32_t size)
 {
 
 }

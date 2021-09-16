@@ -30,11 +30,11 @@ void ServerManager::unRegisterListener(INotify* notify)
     pthread_mutex_unlock(&mLock);
 }
 
-void ServerManager::update(int32_t type, char* data, int32_t size)
+void ServerManager::update(int64_t session, char* data, int32_t size)
 {
     pthread_mutex_lock(&mLock);
     for (std::list<INotify*>::iterator it = notifyList.begin(); it != notifyList.end(); ++it) {
-        ((INotify*)*it)->notify(type, data, size);
+        ((INotify*)*it)->notify(session, data, size);
     }
     pthread_mutex_unlock(&mLock);
 }
