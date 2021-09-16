@@ -16,10 +16,15 @@
 
 RemoteServer::RemoteServer(ServerManager* manager)
 :mManager(manager)
+,is_stop(false)
 {
     printf("%s()\n", __func__);
     pthread_mutex_init(&mLock, NULL);
     mManager->registerListener(this);
+    int32_t ret = pthread_create(&server_tid, NULL, _server_socket, (void *) this);
+    if (ret != 0) {
+    	printf("RemoteServer create socket thread error!");
+    }
 }
 
 RemoteServer::~RemoteServer()
@@ -27,20 +32,29 @@ RemoteServer::~RemoteServer()
     printf("%s()\n", __func__);
     pthread_mutex_destroy(&mLock);
     mManager->unRegisterListener(this);
+    is_stop = true;
+    if(server_socket >= 0){
+        close(server_socket);
+        server_socket = -1;
+        //try connect once for exit accept block
+        int32_t temp_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        struct sockaddr_in servaddr;
+        memset(&servaddr, 0, sizeof(servaddr));
+        servaddr.sin_family = AF_INET;
+        servaddr.sin_port = htons(REMOTE_SERVER_TCP_PORT);
+        servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+        connect(temp_socket, (struct sockaddr *) &servaddr, sizeof(servaddr));
+        close(temp_socket);
+    }else{
+       close(server_socket);
+       server_socket = -1;
+    }
+    pthread_join(server_tid, NULL);
 }
 
 void RemoteServer::notify(int64_t session, char* data, int32_t size)
 {
 
-}
-
-void RemoteServer::start()
-{
-    is_stop = false;
-    int32_t ret = pthread_create(&server_tid, NULL, _server_socket, (void *) this);
-    if (ret != 0) {
-    	printf("RemoteServer create socket thread error!");
-    }
 }
 
 void *RemoteServer::_server_socket(void *argv)
@@ -117,26 +131,4 @@ CLIENT_EXIT:
     close(client_socket);
 	printf("RemoteServer _client_socket exit!\n");
 	return 0;
-}
-
-void RemoteServer::stop()
-{
-    is_stop = true;
-    if(server_socket >= 0){
-        close(server_socket);
-        server_socket = -1;
-        //try connect once for exit accept block
-        int32_t temp_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-        struct sockaddr_in servaddr;
-        memset(&servaddr, 0, sizeof(servaddr));
-        servaddr.sin_family = AF_INET;
-        servaddr.sin_port = htons(REMOTE_SERVER_TCP_PORT);
-        servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
-        connect(temp_socket, (struct sockaddr *) &servaddr, sizeof(servaddr));
-        close(temp_socket);
-    }else{
-       close(server_socket);
-       server_socket = -1;
-    }
-    pthread_join(server_tid, NULL);
 }

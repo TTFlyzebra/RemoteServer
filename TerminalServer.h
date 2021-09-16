@@ -14,8 +14,6 @@ class TerminalServer :public INotify{
 public:
     TerminalServer(ServerManager* manager);
     ~TerminalServer();
-    void start();
-    void stop();
     void disconnectClient(TerminalClient *client);
 
 public:

@@ -13,8 +13,6 @@ class RemoteServer :public INotify{
 public:
     RemoteServer(ServerManager* manager);
     ~RemoteServer();
-    void start();
-    void stop();
 
 public:
     virtual void notify(int64_t session, char* data, int32_t size);

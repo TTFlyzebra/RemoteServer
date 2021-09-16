@@ -59,13 +59,9 @@ int32_t main(int32_t  argc,  char*  argv[])
     ServerManager *manager = new ServerManager();
     TerminalServer *terminal = new TerminalServer(manager);
     RemoteServer *remote = new RemoteServer(manager);
-    terminal->start();
-    remote->start();
     while(!is_stop){
         sleep(1);
     }
-    terminal->stop();
-    remote->stop();
     delete terminal;
     delete manager;
     printf("main server is end.\n");

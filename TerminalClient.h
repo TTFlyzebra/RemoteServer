@@ -19,13 +19,14 @@ class TerminalClient:public INotify {
 public:
     TerminalClient(TerminalServer* server, ServerManager* manager, int32_t socket);
     ~TerminalClient();
-    void recvThread();
-    void sendThread();
 
 public:
     virtual void notify(int64_t session, char* data, int32_t size);
 
 private:
+    void sendThread();
+    void recvThread();
+    void handleData();
     void sendData(char* data, int32_t size);
 
 private:
@@ -33,14 +34,20 @@ private:
     TerminalServer* mServer;
     ServerManager* mManager;
     int32_t mSocket;
-    int64_t session;
+    int64_t mSession;
 
-    char recvBuffer[4096];
-    std::vector<char> sendBuf;
-    std::mutex mlock;
-    std::condition_variable mcond;
-    std::thread *recv_t;
     std::thread *send_t;
+    std::vector<char> sendBuf;
+    std::mutex mlock_send;
+    std::condition_variable mcond_send;
+
+    std::thread *recv_t;
+    char recvBuffer[4096];
+
+    std::thread *hand_t;
+    std::vector<char> recvData;
+    std::mutex mlock_hand;
+    std::condition_variable mcond_hand;
 };
 
 

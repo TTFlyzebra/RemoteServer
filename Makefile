@@ -1,13 +1,13 @@
-PROJECT=remote
+PROJECT=RemoteServer
 GCC=g++
-MYLIB=
-SYSLIB=
-CFLAG=-g -lpthread -std=c++11
-OBJDIR=./out
+LIBS=
 SRCS=$(wildcard *.cpp)
 OBJS=$(patsubst %.cpp,$(OBJDIR)/%.o,$(SRCS))
+CFLAG=-g -lpthread -std=c++11
+OBJDIR=out
+$(shell mkdir -p $(OBJDIR))
 $(PROJECT):$(OBJS)
-	$(GCC) -o $(OBJDIR)/$@ $^ $(CFLAG) $(SYSLIB) $(MYLIB)
+	$(GCC) -o $(OBJDIR)/$@ $^ $(CFLAG) $(LIBS)
 $(OBJDIR)/%.o:%.cpp
 	$(GCC) $(CFLAG) -c -o $@ $<
 clean :

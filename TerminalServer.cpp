@@ -16,10 +16,15 @@
 
 TerminalServer::TerminalServer(ServerManager* manager)
 :mManager(manager)
+,is_stop(false)
 {
     printf("%s()\n", __func__);
     pthread_mutex_init(&mLock, NULL);
     mManager->registerListener(this);
+    int32_t ret = pthread_create(&server_tid, NULL, _server_socket, (void *) this);
+    if (ret != 0) {
+    	printf("TerminalServer create socket thread error!");
+    }
 }
 
 TerminalServer::~TerminalServer()
@@ -33,20 +38,29 @@ TerminalServer::~TerminalServer()
     }
     terminal_clients.clear();
     pthread_mutex_unlock(&mLock);
+    is_stop = true;
+    if(server_socket >= 0){
+        close(server_socket);
+        server_socket = -1;
+        //try connect once for exit accept block
+        int32_t socket_temp = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        struct sockaddr_in servaddr;
+        memset(&servaddr, 0, sizeof(servaddr));
+        servaddr.sin_family = AF_INET;
+        servaddr.sin_port = htons(TERMINAL_SERVER_TCP_PORT);
+        servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+        connect(socket_temp, (struct sockaddr *) &servaddr, sizeof(servaddr));
+        close(socket_temp);
+    }else{
+       close(server_socket);
+       server_socket = -1;
+    }
+    pthread_join(server_tid, NULL);
 }
 
 void TerminalServer::notify(int64_t session, char* data, int32_t size)
 {
 
-}
-
-void TerminalServer::start()
-{
-    is_stop = false;
-    int32_t ret = pthread_create(&server_tid, NULL, _server_socket, (void *) this);
-    if (ret != 0) {
-    	printf("TerminalServer create socket thread error!");
-    }
 }
 
 void *TerminalServer::_server_socket(void *argv)
@@ -100,26 +114,4 @@ void TerminalServer::disconnectClient(TerminalClient* client)
      pthread_mutex_lock(&mLock);
      terminal_clients.remove(client);
      pthread_mutex_unlock(&mLock);
-}
-
-void TerminalServer::stop()
-{
-    is_stop = true;
-    if(server_socket >= 0){
-        close(server_socket);
-        server_socket = -1;
-        //try connect once for exit accept block
-        int32_t socket_temp = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-        struct sockaddr_in servaddr;
-        memset(&servaddr, 0, sizeof(servaddr));
-        servaddr.sin_family = AF_INET;
-        servaddr.sin_port = htons(TERMINAL_SERVER_TCP_PORT);
-        servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
-        connect(socket_temp, (struct sockaddr *) &servaddr, sizeof(servaddr));
-        close(socket_temp);
-    }else{
-       close(server_socket);
-       server_socket = -1;
-    }
-    pthread_join(server_tid, NULL);
 }

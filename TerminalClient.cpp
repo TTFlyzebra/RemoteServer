@@ -18,6 +18,7 @@ TerminalClient::TerminalClient(TerminalServer* server, ServerManager* manager, i
     mManager->registerListener(this);
     recv_t = new std::thread(&TerminalClient::recvThread, this);
     send_t = new std::thread(&TerminalClient::sendThread, this);
+    hand_t = new std::thread(&TerminalClient::handleData, this);
 }
 
 TerminalClient::~TerminalClient()
@@ -27,13 +28,19 @@ TerminalClient::~TerminalClient()
     is_stop = true;
     close(mSocket);
     {
-        std::lock_guard<std::mutex> lock (mlock);
-        mcond.notify_one();
+        std::lock_guard<std::mutex> lock (mlock_send);
+        mcond_send.notify_one();
+    }
+    {
+        std::lock_guard<std::mutex> lock (mlock_hand);
+        mcond_hand.notify_one();
     }
     recv_t->join();
     send_t->join();
+    hand_t->join();
     delete recv_t;
     delete send_t;
+    delete hand_t;
 }
 
 void TerminalClient::notify(int64_t session, char* data, int32_t size)
@@ -41,20 +48,12 @@ void TerminalClient::notify(int64_t session, char* data, int32_t size)
 
 }
 
-void TerminalClient::recvThread()
-{
-    while(!is_stop){
-        int recvLen = recv(mSocket, recvBuffer, 4096, 0);
-        printf("recv data size[%d]\n", recvLen);
-    }
-}
-
 void TerminalClient::sendThread()
 {
     while (!is_stop) {
-        std::unique_lock<std::mutex> lock (mlock);
+        std::unique_lock<std::mutex> lock (mlock_send);
     	if (sendBuf.empty()) {
-    	    mcond.wait(lock);
+    	    mcond_send.wait(lock);
     	}
     	if (!sendBuf.empty()) {
     		int32_t sendSize = 0;
@@ -75,13 +74,29 @@ void TerminalClient::sendThread()
     mServer->disconnectClient(this);
 }
 
+
+void TerminalClient::recvThread()
+{
+    while(!is_stop){
+        int recvLen = recv(mSocket, recvBuffer, 4096, 0);
+        printf("recv data size[%d]\n", recvLen);
+    }
+}
+
+void TerminalClient::handleData()
+{
+    while(!is_stop){
+
+    }
+}
+
 void TerminalClient::sendData(char* data, int32_t size)
 {
-    std::lock_guard<std::mutex> lock (mlock);
+    std::lock_guard<std::mutex> lock (mlock_send);
     if (sendBuf.size() > TERMINAL_MAX_BUFFER) {
         printf("NOTE::terminalClient send buffer too max, wile clean %zu size", sendBuf.size());
     	sendBuf.clear();
     }
     sendBuf.insert(sendBuf.end(), data, data + size);
-    mcond.notify_one();
+    mcond_send.notify_one();
 }
