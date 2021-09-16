@@ -11,4 +11,4 @@ $(PROJECT):$(OBJS)
 $(OBJDIR)/%.o:%.cpp
 	$(GCC) -c -o $@ $<
 clean :
-	rm remote $(OBJS)
+	rm Server $(OBJS)

@@ -5,32 +5,37 @@
 #ifndef ANDROID_TERMINALSERVER_H
 #define ANDROID_TERMINALSERVER_H
 
-#include <vector>
-#include "TerminalServer.h"
-#include "RemoteManager.h"
+#include <list>
+#include <stdint.h>
+#include "ServerManager.h"
+#include "TerminalClient.h"
 
 class TerminalServer :public INotify{
 public:
-    TerminalServer(RemoteManager* manager);
+    TerminalServer(ServerManager* manager);
     ~TerminalServer();
     void start();
     void stop();
-public:
-    virtual void notify(int type, char* data, int size);
+
+protected:
+    virtual void notify(int64_t id, char* data, int32_t size);
+
 private:
     static void *_server_socket(void *arg);
-    static void *_client_socket(void *arg);
+    void disconnect_client(TerminalClient *client);
 
 private:
-    RemoteManager* mManager;
-    char temp[4096];
+    ServerManager* mManager;
 
-    pthread_t server_tid;
-    std::vector<int> accept_sockets;
-    pthread_mutex_t mLock;
+    int32_t server_socket;
+
     volatile bool is_stop;
     volatile bool is_running;
-    int server_socket;
+
+    pthread_t server_tid;
+
+    pthread_mutex_t mLock;
+    std::list<TerminalClient*> terminal_clients;
 };
 
 

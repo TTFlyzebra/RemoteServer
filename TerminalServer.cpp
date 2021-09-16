@@ -14,7 +14,7 @@
 #include "TerminalServer.h"
 #include "config.h"
 
-TerminalServer::TerminalServer(RemoteManager* manager)
+TerminalServer::TerminalServer(ServerManager* manager)
 :mManager(manager)
 {
     printf("%s()\n", __func__);
@@ -27,17 +27,24 @@ TerminalServer::~TerminalServer()
     printf("%s()\n", __func__);
     pthread_mutex_destroy(&mLock);
     mManager->unRegisterListener(this);
+    pthread_mutex_lock(&mLock);
+    for (std::list<TerminalClient*>::iterator it = terminal_clients.begin(); it != terminal_clients.end(); ++it) {
+        ((TerminalClient*)*it)->stop();
+        delete ((TerminalClient*)*it);
+    }
+    terminal_clients.clear();
+    pthread_mutex_unlock(&mLock);
 }
 
-void TerminalServer::notify(int type, char* data, int size)
+void TerminalServer::notify(int64_t id, char* data, int32_t size)
 {
-    printf("notify %d\n", type);
+
 }
 
 void TerminalServer::start()
 {
     is_stop = false;
-    int ret = pthread_create(&server_tid, NULL, _server_socket, (void *) this);
+    int32_t ret = pthread_create(&server_tid, NULL, _server_socket, (void *) this);
     if (ret != 0) {
     	printf("TerminalServer create socket thread error!");
     }
@@ -58,7 +65,7 @@ void *TerminalServer::_server_socket(void *argv)
         printf("TerminalServer socket server error %s errno: %d\n", strerror(errno), errno);
         return 0;
     }
-    int ret = bind(p->server_socket,(struct sockaddr *) &t_sockaddr,sizeof(t_sockaddr));
+    int32_t ret = bind(p->server_socket,(struct sockaddr *) &t_sockaddr,sizeof(t_sockaddr));
     if (ret < 0) {
         printf( "TerminalServer bind %d socket error %s errno: %d\n", TERMINAL_SERVER_TCP_PORT, strerror(errno), errno);
         return 0;
@@ -68,24 +75,17 @@ void *TerminalServer::_server_socket(void *argv)
         printf("TerminalServer listen error %s errno: %d\n", strerror(errno), errno);
     }
     while(!p->is_stop) {
-        int client_socket = accept(p->server_socket, (struct sockaddr*)NULL, NULL);
+        int32_t client_socket = accept(p->server_socket, (struct sockaddr*)NULL, NULL);
         if(client_socket < 0) {
             printf("TerminalServer accpet socket error: %s errno :%d\n", strerror(errno), errno);
             continue;
         }
         if(p->is_stop) break;
-        {
-            pthread_mutex_lock(&p->mLock);
-            p->accept_sockets.push_back(client_socket);
-            pthread_t client_tid;
-            int ret = pthread_create(&client_tid, NULL, _client_socket, (void *)argv);
-            pthread_detach(client_tid);
-            if (ret != 0) {
-            	printf("AudioEncoder create audio client socket thread error!\n");
-            	p->accept_sockets.pop_back();
-            }
-            pthread_mutex_unlock(&p->mLock);
-        }
+
+        TerminalClient *client = new TerminalClient(p->mManager, client_socket);
+        pthread_mutex_lock(&p->mLock);
+        p->terminal_clients.push_back(client);
+        pthread_mutex_unlock(&p->mLock);
     }
     if(p->server_socket >= 0){
         close(p->server_socket);
@@ -96,27 +96,11 @@ void *TerminalServer::_server_socket(void *argv)
 	return 0;
 }
 
-void *TerminalServer::_client_socket(void *argv)
+void TerminalServer::disconnect_client(TerminalClient* client)
 {
-    printf("TerminalServer _client_socket start!\n");
-    signal(SIGPIPE, SIG_IGN);
-    TerminalServer* p=(TerminalServer *)argv;
-    pthread_mutex_lock(&p->mLock);
-	int client_socket = p->accept_sockets.front();
-	p->accept_sockets.pop_back();
-	pthread_mutex_unlock(&p->mLock);
-	unsigned char recvBuf[4096];
-    int32_t recvLen;
-	while(!p->is_stop){
-	    recvLen = recv(client_socket, recvBuf, 4096, 0);
-	    if(recvLen<0){
-	        if(errno!=11 || errno !=0) goto CLIENT_EXIT;
-	    }
-	}
-CLIENT_EXIT:
-    close(client_socket);
-	printf("TerminalServer _client_socket exit!\n");
-	return 0;
+     pthread_mutex_lock(&mLock);
+     terminal_clients.remove(client);
+     pthread_mutex_unlock(&mLock);
 }
 
 void TerminalServer::stop()

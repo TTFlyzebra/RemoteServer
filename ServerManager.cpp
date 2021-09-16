@@ -2,35 +2,35 @@
 // Created by FlyZebra on 2021/9/15 0015.
 //
 
-#include "RemoteManager.h"
+#include "ServerManager.h"
 
-RemoteManager::RemoteManager()
+ServerManager::ServerManager()
 {
     printf("%s()\n", __func__);
     pthread_mutex_init(&mLock, NULL);
 }
 
-RemoteManager::~RemoteManager()
+ServerManager::~ServerManager()
 {
     printf("%s()\n", __func__);
     pthread_mutex_destroy(&mLock);
 }
 
-void RemoteManager::registerListener(INotify* notify)
+void ServerManager::registerListener(INotify* notify)
 {
     pthread_mutex_lock(&mLock);
     notifyList.push_back(notify);
     pthread_mutex_unlock(&mLock);
 }
 
-void RemoteManager::unRegisterListener(INotify* notify)
+void ServerManager::unRegisterListener(INotify* notify)
 {
     pthread_mutex_lock(&mLock);
     notifyList.remove(notify);
     pthread_mutex_unlock(&mLock);
 }
 
-void RemoteManager::update(int type, char* data, int size)
+void ServerManager::update(int32_t type, char* data, int32_t size)
 {
     pthread_mutex_lock(&mLock);
     for (std::list<INotify*>::iterator it = notifyList.begin(); it != notifyList.end(); ++it) {
