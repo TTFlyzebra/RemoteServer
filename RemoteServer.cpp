@@ -77,7 +77,7 @@ void *RemoteServer::_server_socket(void *argv)
         printf( "RemoteServer bind %d socket error %s errno: %d\n", REMOTE_SERVER_TCP_PORT, strerror(errno), errno);
         return 0;
     }
-    ret = listen(p->server_socket, 5);
+    ret = listen(p->server_socket, 1024);
     if (ret < 0) {
         printf("RemoteServer listen error %s errno: %d\n", strerror(errno), errno);
     }

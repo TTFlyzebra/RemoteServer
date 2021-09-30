@@ -25,6 +25,7 @@ TerminalServer::TerminalServer(ServerManager* manager)
     if (ret != 0) {
     	printf("TerminalServer create socket thread error!");
     }
+    remove_t = new std::thread(&TerminalServer::removeClient, this);
 }
 
 TerminalServer::~TerminalServer()
@@ -32,12 +33,14 @@ TerminalServer::~TerminalServer()
     printf("%s()\n", __func__);
     pthread_mutex_destroy(&mLock);
     mManager->unRegisterListener(this);
+    printf("%s() 0\n", __func__);
     pthread_mutex_lock(&mLock);
     for (std::list<TerminalClient*>::iterator it = terminal_clients.begin(); it != terminal_clients.end(); ++it) {
         delete ((TerminalClient*)*it);
     }
     terminal_clients.clear();
     pthread_mutex_unlock(&mLock);
+    printf("%s() 1\n", __func__);
     is_stop = true;
     if(server_socket >= 0){
         close(server_socket);
@@ -56,6 +59,14 @@ TerminalServer::~TerminalServer()
        server_socket = -1;
     }
     pthread_join(server_tid, NULL);
+    printf("%s() 2\n", __func__);
+    {
+        std::lock_guard<std::mutex> lock (mlock_remove);
+        mcond_remove.notify_one();
+    }
+    printf("%s() 3\n", __func__);
+    remove_t->join();
+    delete remove_t;
 }
 
 void TerminalServer::notify(char* data, int32_t size)
@@ -111,8 +122,26 @@ void *TerminalServer::_server_socket(void *argv)
 
 void TerminalServer::disconnectClient(TerminalClient* client)
 {
-     pthread_mutex_lock(&mLock);
-     terminal_clients.remove(client);
-     pthread_mutex_unlock(&mLock);
-     delete client;
+    std::lock_guard<std::mutex> lock (mlock_remove);
+    remove_clients.push_back(client);
+    mcond_remove.notify_one();
+}
+
+void TerminalServer::removeClient()
+{
+    printf("%s()\n", __func__);
+    while(!is_stop){
+        std::unique_lock<std::mutex> lock (mlock_remove);
+        while (!is_stop && remove_clients.empty()) {
+            mcond_remove.wait(lock);
+        }
+        if(is_stop) break;
+        for (std::vector<TerminalClient*>::iterator it = remove_clients.begin(); it != remove_clients.end(); ++it) {
+            pthread_mutex_lock(&mLock);
+            terminal_clients.remove(((TerminalClient*)*it));
+            pthread_mutex_unlock(&mLock);
+            delete ((TerminalClient*)*it);
+        }
+        remove_clients.clear();
+    }
 }

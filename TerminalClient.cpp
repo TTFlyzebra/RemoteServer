@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <errno.h>
 #include "TerminalClient.h"
 #include "TerminalServer.h"
 #include "Config.h"
@@ -14,6 +15,7 @@ TerminalClient::TerminalClient(TerminalServer* server, ServerManager* manager, i
 ,mManager(manager)
 ,mSocket(socket)
 ,is_stop(false)
+,is_disconnect(false)
 {
     printf("%s()\n", __func__);
     mManager->registerListener(this);
@@ -42,6 +44,7 @@ TerminalClient::~TerminalClient()
     delete recv_t;
     delete send_t;
     delete hand_t;
+    printf("%s() ok!\n", __func__);
 }
 
 void TerminalClient::notify(char* data, int32_t size)
@@ -73,7 +76,10 @@ void TerminalClient::sendThread()
     		sendBuf.clear();
     	}
     }
-    mServer->disconnectClient(this);
+    if(!is_disconnect){
+        is_disconnect = true;
+        mServer->disconnectClient(this);
+    }
 }
 
 void TerminalClient::recvThread()
@@ -81,9 +87,9 @@ void TerminalClient::recvThread()
     char tempBuf[4096];
     while(!is_stop){
         int recvLen = recv(mSocket, tempBuf, 4096, 0);
-        printf("recv data size[%d]\n", recvLen);
-        if (recvLen < 0) {
-            if(errno!=11 || errno!= 0) {
+        printf("recv data size[%d] errno[%d]\n",recvLen, errno);
+        if (recvLen <= 0) {
+            if(recvLen==0 || (!(errno==11 || errno== 0))) {
                 //TODO::disconnect
                 break;
             }
@@ -93,7 +99,10 @@ void TerminalClient::recvThread()
             mcond_send.notify_one();
         }
     }
-    mServer->disconnectClient(this);
+    if(!is_disconnect){
+        is_disconnect = true;
+        mServer->disconnectClient(this);
+    }
 }
 
 void TerminalClient::handleData()

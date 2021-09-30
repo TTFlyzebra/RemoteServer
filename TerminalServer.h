@@ -21,6 +21,7 @@ public:
 
 private:
     static void *_server_socket(void *arg);
+    void removeClient();
 
 private:
     ServerManager* mManager;
@@ -34,6 +35,11 @@ private:
 
     pthread_mutex_t mLock;
     std::list<TerminalClient*> terminal_clients;
+
+    std::thread *remove_t;
+    std::vector<TerminalClient*> remove_clients;
+    std::mutex mlock_remove;
+    std::condition_variable mcond_remove;
 };
 
 

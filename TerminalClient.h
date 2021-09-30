@@ -32,6 +32,7 @@ private:
 
 private:
     volatile bool is_stop;
+    volatile bool is_disconnect;
     TerminalServer* mServer;
     ServerManager* mManager;
     int32_t mSocket;

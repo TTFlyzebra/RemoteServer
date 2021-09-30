@@ -3,7 +3,7 @@ GCC=g++
 LIBS=
 SRCS=$(wildcard *.cpp)
 OBJS=$(patsubst %.cpp,$(OBJDIR)/%.o,$(SRCS))
-CFLAG=-g -lpthread -std=c++11
+CFLAG=-g -std=c++11 -pthread
 OBJDIR=out
 $(shell mkdir -p $(OBJDIR))
 $(PROJECT):$(OBJS)
