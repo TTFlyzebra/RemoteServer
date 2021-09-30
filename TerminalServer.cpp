@@ -12,7 +12,7 @@
 #include <signal.h>
 
 #include "TerminalServer.h"
-#include "config.h"
+#include "Config.h"
 
 TerminalServer::TerminalServer(ServerManager* manager)
 :mManager(manager)
@@ -58,7 +58,7 @@ TerminalServer::~TerminalServer()
     pthread_join(server_tid, NULL);
 }
 
-void TerminalServer::notify(int64_t session, char* data, int32_t size)
+void TerminalServer::notify(char* data, int32_t size)
 {
 
 }
@@ -114,4 +114,5 @@ void TerminalServer::disconnectClient(TerminalClient* client)
      pthread_mutex_lock(&mLock);
      terminal_clients.remove(client);
      pthread_mutex_unlock(&mLock);
+     delete client;
 }

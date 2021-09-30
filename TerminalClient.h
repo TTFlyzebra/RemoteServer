@@ -13,6 +13,7 @@
 #include <unistd.h>
 #include "ServerManager.h"
 
+
 class TerminalServer;
 
 class TerminalClient:public INotify {
@@ -21,7 +22,7 @@ public:
     ~TerminalClient();
 
 public:
-    virtual void notify(int64_t session, char* data, int32_t size);
+    virtual void notify(char* data, int32_t size);
 
 private:
     void sendThread();
@@ -42,10 +43,9 @@ private:
     std::condition_variable mcond_send;
 
     std::thread *recv_t;
-    char recvBuffer[4096];
 
     std::thread *hand_t;
-    std::vector<char> recvData;
+    std::vector<char> recvBuf;
     std::mutex mlock_hand;
     std::condition_variable mcond_hand;
 };

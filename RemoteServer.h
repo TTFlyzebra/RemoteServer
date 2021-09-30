@@ -15,7 +15,7 @@ public:
     ~RemoteServer();
 
 public:
-    virtual void notify(int64_t session, char* data, int32_t size);
+    virtual void notify(char* data, int32_t size);
 
 private:
     static void *_server_socket(void *arg);

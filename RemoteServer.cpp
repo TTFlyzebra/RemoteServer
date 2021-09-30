@@ -12,7 +12,7 @@
 #include <signal.h>
 
 #include "RemoteServer.h"
-#include "config.h"
+#include "Config.h"
 
 RemoteServer::RemoteServer(ServerManager* manager)
 :mManager(manager)
@@ -52,7 +52,7 @@ RemoteServer::~RemoteServer()
     pthread_join(server_tid, NULL);
 }
 
-void RemoteServer::notify(int64_t session, char* data, int32_t size)
+void RemoteServer::notify(char* data, int32_t size)
 {
 
 }

@@ -10,7 +10,6 @@
 #include "TerminalServer.h"
 #include "RemoteServer.h"
 
-
 static volatile bool is_stop = false;
 
 static struct sigaction gOrigSigactionINT;
@@ -18,7 +17,7 @@ static struct sigaction gOrigSigactionHUP;
 
 static void signalCatcher(int32_t signum)
 {
-    printf("recv ctrl+c signal [%d]\n", signum);
+    printf("recv ctrl+c exit! signum=[%d]\n", signum);
     is_stop = true;
     switch (signum) {
     case SIGINT:
@@ -63,6 +62,7 @@ int32_t main(int32_t  argc,  char*  argv[])
         sleep(1);
     }
     delete terminal;
+    delete remote;
     delete manager;
     printf("main server is end.\n");
 }

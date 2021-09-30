@@ -6,7 +6,8 @@
 #include <unistd.h>
 #include "TerminalClient.h"
 #include "TerminalServer.h"
-#include "config.h"
+#include "Config.h"
+#include "Command.h"
 
 TerminalClient::TerminalClient(TerminalServer* server, ServerManager* manager, int32_t socket)
 :mServer(server)
@@ -43,7 +44,7 @@ TerminalClient::~TerminalClient()
     delete hand_t;
 }
 
-void TerminalClient::notify(int64_t session, char* data, int32_t size)
+void TerminalClient::notify(char* data, int32_t size)
 {
 
 }
@@ -61,7 +62,8 @@ void TerminalClient::sendThread()
     		while(sendSize<dataSize){
     		    int32_t sendLen = send(mSocket,(const char*)&sendBuf[sendSize],dataSize-sendSize, 0);
     		    if (sendLen < 0) {
-    		        if(errno!=11 && errno!= 0) {
+    		        if(errno!=11 || errno!= 0) {
+    		            //TODO::disconnect
     		            break;
     		        }
     		    }else{
@@ -74,19 +76,43 @@ void TerminalClient::sendThread()
     mServer->disconnectClient(this);
 }
 
-
 void TerminalClient::recvThread()
 {
+    char tempBuf[4096];
     while(!is_stop){
-        int recvLen = recv(mSocket, recvBuffer, 4096, 0);
+        int recvLen = recv(mSocket, tempBuf, 4096, 0);
         printf("recv data size[%d]\n", recvLen);
+        if (recvLen < 0) {
+            if(errno!=11 || errno!= 0) {
+                //TODO::disconnect
+                break;
+            }
+        }else{
+            std::lock_guard<std::mutex> lock (mlock_hand);
+            recvBuf.insert(recvBuf.end(), tempBuf, tempBuf+recvLen);
+            mcond_send.notify_one();
+        }
     }
+    mServer->disconnectClient(this);
 }
 
 void TerminalClient::handleData()
 {
     while(!is_stop){
-
+        std::unique_lock<std::mutex> lock (mlock_send);
+        while (!is_stop && recvBuf.empty()) {
+            mcond_send.wait(lock);
+        }
+        if(is_stop) break;
+        if(recvBuf.size()<8) continue;
+        int32_t dataSize = sendBuf[4]<<24&0xFF000000
+                          +sendBuf[5]<<16&0x00FF0000
+                          +sendBuf[6]<<8&0x0000FF00
+                          +sendBuf[7]&0x000000FF;
+        printf("dataSize=%d, sendBuf.size=%d", dataSize, recvBuf.size());
+        if(dataSize+8<recvBuf.size()) continue;
+        recvBuf.erase(recvBuf.begin(),recvBuf.begin()+dataSize+8);
+        printf("sendBuf.size=%d", recvBuf.size());
     }
 }
 
