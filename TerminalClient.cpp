@@ -26,17 +26,17 @@ TerminalClient::TerminalClient(TerminalServer* server, ServerManager* manager, i
 
 TerminalClient::~TerminalClient()
 {
-    printf("%s()\n", __func__);
     mManager->unRegisterListener(this);
     is_stop = true;
+    shutdown(mSocket, SHUT_RDWR);
     close(mSocket);
     {
         std::lock_guard<std::mutex> lock (mlock_send);
-        mcond_send.notify_one();
+        mcond_send.notify_all();
     }
     {
-        std::lock_guard<std::mutex> lock (mlock_hand);
-        mcond_hand.notify_one();
+        std::lock_guard<std::mutex> lock (mlock_recv);
+        mcond_recv.notify_all();
     }
     recv_t->join();
     send_t->join();
@@ -44,7 +44,7 @@ TerminalClient::~TerminalClient()
     delete recv_t;
     delete send_t;
     delete hand_t;
-    printf("%s() ok!\n", __func__);
+    printf("%s()\n", __func__);
 }
 
 void TerminalClient::notify(char* data, int32_t size)
@@ -58,12 +58,14 @@ void TerminalClient::sendThread()
         std::unique_lock<std::mutex> lock (mlock_send);
     	if (sendBuf.empty()) {
     	    mcond_send.wait(lock);
+            if(is_stop) break;
     	}
     	if (!sendBuf.empty()) {
     		int32_t sendSize = 0;
     		int32_t dataSize = sendBuf.size();
     		while(sendSize<dataSize){
     		    int32_t sendLen = send(mSocket,(const char*)&sendBuf[sendSize],dataSize-sendSize, 0);
+    		    printf("send data size[%d] errno[%d]\n",sendLen, errno);
     		    if (sendLen < 0) {
     		        if(errno!=11 || errno!= 0) {
     		            //TODO::disconnect
@@ -87,16 +89,16 @@ void TerminalClient::recvThread()
     char tempBuf[4096];
     while(!is_stop){
         int recvLen = recv(mSocket, tempBuf, 4096, 0);
-        printf("recv data size[%d] errno[%d]\n",recvLen, errno);
+        //printf("recv data size[%d] errno[%d]\n",recvLen, errno);
         if (recvLen <= 0) {
             if(recvLen==0 || (!(errno==11 || errno== 0))) {
                 //TODO::disconnect
                 break;
             }
         }else{
-            std::lock_guard<std::mutex> lock (mlock_hand);
+            std::lock_guard<std::mutex> lock (mlock_recv);
             recvBuf.insert(recvBuf.end(), tempBuf, tempBuf+recvLen);
-            mcond_send.notify_one();
+            mcond_recv.notify_one();
         }
     }
     if(!is_disconnect){
@@ -108,20 +110,13 @@ void TerminalClient::recvThread()
 void TerminalClient::handleData()
 {
     while(!is_stop){
-        std::unique_lock<std::mutex> lock (mlock_send);
+        std::unique_lock<std::mutex> lock (mlock_recv);
         while (!is_stop && recvBuf.empty()) {
-            mcond_send.wait(lock);
+            mcond_recv.wait(lock);
         }
         if(is_stop) break;
-        if(recvBuf.size()<8) continue;
-        int32_t dataSize = sendBuf[4]<<24&0xFF000000
-                          +sendBuf[5]<<16&0x00FF0000
-                          +sendBuf[6]<<8&0x0000FF00
-                          +sendBuf[7]&0x000000FF;
-        printf("dataSize=%d, sendBuf.size=%d", dataSize, recvBuf.size());
-        if(dataSize+8<recvBuf.size()) continue;
-        recvBuf.erase(recvBuf.begin(),recvBuf.begin()+dataSize+8);
-        printf("sendBuf.size=%d", recvBuf.size());
+        mManager->updataAsync(&recvBuf[0], recvBuf.size());
+        recvBuf.clear();    
     }
 }
 

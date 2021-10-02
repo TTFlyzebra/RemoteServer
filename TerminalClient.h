@@ -44,11 +44,10 @@ private:
     std::condition_variable mcond_send;
 
     std::thread *recv_t;
-
     std::thread *hand_t;
     std::vector<char> recvBuf;
-    std::mutex mlock_hand;
-    std::condition_variable mcond_hand;
+    std::mutex mlock_recv;
+    std::condition_variable mcond_recv;
 };
 
 

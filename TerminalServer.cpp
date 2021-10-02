@@ -30,18 +30,16 @@ TerminalServer::TerminalServer(ServerManager* manager)
 
 TerminalServer::~TerminalServer()
 {
-    printf("%s()\n", __func__);
     pthread_mutex_destroy(&mLock);
     mManager->unRegisterListener(this);
-    printf("%s() 0\n", __func__);
     pthread_mutex_lock(&mLock);
     for (std::list<TerminalClient*>::iterator it = terminal_clients.begin(); it != terminal_clients.end(); ++it) {
         delete ((TerminalClient*)*it);
     }
     terminal_clients.clear();
     pthread_mutex_unlock(&mLock);
-    printf("%s() 1\n", __func__);
     is_stop = true;
+    shutdown(server_socket, SHUT_RDWR);
     if(server_socket >= 0){
         close(server_socket);
         server_socket = -1;
@@ -59,14 +57,13 @@ TerminalServer::~TerminalServer()
        server_socket = -1;
     }
     pthread_join(server_tid, NULL);
-    printf("%s() 2\n", __func__);
     {
         std::lock_guard<std::mutex> lock (mlock_remove);
         mcond_remove.notify_one();
     }
-    printf("%s() 3\n", __func__);
     remove_t->join();
     delete remove_t;
+    printf("%s()\n", __func__);
 }
 
 void TerminalServer::notify(char* data, int32_t size)
@@ -129,7 +126,6 @@ void TerminalServer::disconnectClient(TerminalClient* client)
 
 void TerminalServer::removeClient()
 {
-    printf("%s()\n", __func__);
     while(!is_stop){
         std::unique_lock<std::mutex> lock (mlock_remove);
         while (!is_stop && remove_clients.empty()) {

@@ -33,6 +33,7 @@ RemoteServer::~RemoteServer()
     pthread_mutex_destroy(&mLock);
     mManager->unRegisterListener(this);
     is_stop = true;
+    shutdown(server_socket, SHUT_RDWR);
     if(server_socket >= 0){
         close(server_socket);
         server_socket = -1;
@@ -50,6 +51,7 @@ RemoteServer::~RemoteServer()
        server_socket = -1;
     }
     pthread_join(server_tid, NULL);
+    printf("%s()\n", __func__);
 }
 
 void RemoteServer::notify(char* data, int32_t size)
