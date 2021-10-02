@@ -8,27 +8,38 @@
 #include <vector>
 #include "RemoteServer.h"
 #include "ServerManager.h"
+#include "RemoteClient.h"
+
 
 class RemoteServer :public INotify{
 public:
     RemoteServer(ServerManager* manager);
     ~RemoteServer();
+    void disconnectClient(RemoteClient *client);
 
 public:
     virtual void notify(char* data, int32_t size);
 
 private:
-    static void *_server_socket(void *arg);
-    static void *_client_socket(void *arg);
+    void serverSocket();
+    void removeClient();
 
 private:
     ServerManager* mManager;
-    pthread_t server_tid;
-    std::vector<int> accept_sockets;
-    pthread_mutex_t mLock;
+
+    int32_t server_socket;
+    
     volatile bool is_stop;
     volatile bool is_running;
-    int32_t server_socket;
+
+    std::thread *server_t;
+    std::list<RemoteClient*> Remote_clients;
+    std::mutex mlock_server;
+
+    std::thread *remove_t;
+    std::vector<RemoteClient*> remove_clients;
+    std::mutex mlock_remove;
+    std::condition_variable mcond_remove;
 };
 
 

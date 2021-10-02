@@ -20,7 +20,7 @@ public:
     virtual void notify(char* data, int32_t size);
 
 private:
-    static void *_server_socket(void *arg);
+    void serverSocket();
     void removeClient();
 
 private:
@@ -31,10 +31,9 @@ private:
     volatile bool is_stop;
     volatile bool is_running;
 
-    pthread_t server_tid;
-
-    pthread_mutex_t mLock;
+    std::thread *server_t;
     std::list<TerminalClient*> terminal_clients;
+    std::mutex mlock_server;
 
     std::thread *remove_t;
     std::vector<TerminalClient*> remove_clients;
