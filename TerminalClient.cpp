@@ -49,34 +49,37 @@ TerminalClient::~TerminalClient()
 
 void TerminalClient::notify(char* data, int32_t size)
 {
-
+    char temp[256] = {0};
+	int32_t num = size<64?size:64;
+    for (int32_t i = 0; i < num; i++) {
+        sprintf(temp, "%s%02x:", temp, data[i]&0xFF);
+    }
+    printf("notify data:%s\n", temp);
 }
 
 void TerminalClient::sendThread()
 {
     while (!is_stop) {
         std::unique_lock<std::mutex> lock (mlock_send);
-    	if (sendBuf.empty()) {
+    	while(!is_stop &&sendBuf.empty()) {
     	    mcond_send.wait(lock);
-            if(is_stop) break;
     	}
-    	if (!sendBuf.empty()) {
-    		int32_t sendSize = 0;
-    		int32_t dataSize = sendBuf.size();
-    		while(sendSize<dataSize){
-    		    int32_t sendLen = send(mSocket,(const char*)&sendBuf[sendSize],dataSize-sendSize, 0);
-    		    printf("send data size[%d] errno[%d]\n",sendLen, errno);
-    		    if (sendLen < 0) {
-    		        if(errno!=11 || errno!= 0) {
-    		            //TODO::disconnect
-    		            break;
-    		        }
-    		    }else{
-    		        sendSize+=sendLen;
-    		    }
-    		}
-    		sendBuf.clear();
+        if(is_stop) break;
+    	int32_t sendSize = 0;
+    	int32_t dataSize = sendBuf.size();
+    	while(!is_stop && sendSize<dataSize){
+    	    int32_t sendLen = send(mSocket,(const char*)&sendBuf[sendSize],dataSize-sendSize, 0);
+    	    printf("send data size[%d] errno[%d]\n",sendLen, errno);
+    	    if (sendLen < 0) {
+    	        if(errno!=11 || errno!= 0) {
+    	            is_stop = true;
+    	            break;
+    	        }
+    	    }else{
+    	        sendSize+=sendLen;
+    	    }
     	}
+    	sendBuf.clear();
     }
     if(!is_disconnect){
         is_disconnect = true;

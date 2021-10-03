@@ -48,10 +48,10 @@ RemoteServer::~RemoteServer()
     }
     {
         std::lock_guard<std::mutex> lock (mlock_server);
-        for (std::list<RemoteClient*>::iterator it = Remote_clients.begin(); it != Remote_clients.end(); ++it) {
+        for (std::list<RemoteClient*>::iterator it = remote_clients.begin(); it != remote_clients.end(); ++it) {
             delete ((RemoteClient*)*it);
         }
-        Remote_clients.clear();
+        remote_clients.clear();
     }
     {
         std::lock_guard<std::mutex> lock (mlock_remove);
@@ -101,7 +101,7 @@ void RemoteServer::serverSocket()
         if(is_stop) break;
         RemoteClient *client = new RemoteClient(this, mManager, client_socket);
         std::lock_guard<std::mutex> lock (mlock_server);
-        Remote_clients.push_back(client);
+        remote_clients.push_back(client);
     }
     if(server_socket >= 0){
         close(server_socket);
@@ -130,7 +130,7 @@ void RemoteServer::removeClient()
         for (std::vector<RemoteClient*>::iterator it = remove_clients.begin(); it != remove_clients.end(); ++it) {
             {
                 std::lock_guard<std::mutex> lock (mlock_server);
-                Remote_clients.remove(((RemoteClient*)*it));
+                remote_clients.remove(((RemoteClient*)*it));
             }
             delete ((RemoteClient*)*it);
         }

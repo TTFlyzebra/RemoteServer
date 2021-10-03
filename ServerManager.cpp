@@ -70,18 +70,10 @@ void ServerManager::handleData()
             continue;
         }
         int32_t dataSize = dataBuf[4]<<24|dataBuf[5]<<16|dataBuf[6]<<8|dataBuf[7];
-        if(dataSize+8<dataBuf.size()) {
+        if(dataSize+8>dataBuf.size()) {
             printf("handleData size error, dataSize=%d, bufSize=%d\n", dataSize+8, dataBuf.size());
             continue;
         }
-        
-        char temp[256] = {0};
-		int32_t num = dataBuf.size()<64?dataBuf.size():64;
-        for (int32_t i = 0; i < num; i++) {
-            sprintf(temp, "%s%02x:", temp, dataBuf[i]&0xFF);
-        }
-        printf("dataBuf:%s\n", temp);
-        
         updataSync(&dataBuf[0], dataSize+8);
         dataBuf.erase(dataBuf.begin(),dataBuf.begin()+dataSize+8);
     }
