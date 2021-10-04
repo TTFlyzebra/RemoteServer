@@ -9,6 +9,7 @@
 #include "TerminalServer.h"
 #include "Config.h"
 #include "Command.h"
+#include "FlyLog.h"
 
 TerminalClient::TerminalClient(TerminalServer* server, ServerManager* manager, int32_t socket)
 :mServer(server)
@@ -17,7 +18,7 @@ TerminalClient::TerminalClient(TerminalServer* server, ServerManager* manager, i
 ,is_stop(false)
 ,is_disconnect(false)
 {
-    printf("%s()\n", __func__);
+    FLOGD("%s()", __func__);
     mManager->registerListener(this);
     recv_t = new std::thread(&TerminalClient::recvThread, this);
     send_t = new std::thread(&TerminalClient::sendThread, this);
@@ -44,7 +45,7 @@ TerminalClient::~TerminalClient()
     delete recv_t;
     delete send_t;
     delete hand_t;
-    printf("%s()\n", __func__);
+    FLOGD("%s()", __func__);
 }
 
 void TerminalClient::notify(char* data, int32_t size)
@@ -54,7 +55,7 @@ void TerminalClient::notify(char* data, int32_t size)
     for (int32_t i = 0; i < num; i++) {
         sprintf(temp, "%s%02x:", temp, data[i]&0xFF);
     }
-    printf("notify data:%s\n", temp);
+    FLOGD("notify data:%s", temp);
 }
 
 void TerminalClient::sendThread()
@@ -69,7 +70,7 @@ void TerminalClient::sendThread()
     	int32_t dataSize = sendBuf.size();
     	while(!is_stop && sendSize<dataSize){
     	    int32_t sendLen = send(mSocket,(const char*)&sendBuf[sendSize],dataSize-sendSize, 0);
-    	    printf("send data size[%d] errno[%d]\n",sendLen, errno);
+    	    FLOGD("send data size[%d] errno[%d]",sendLen, errno);
     	    if (sendLen < 0) {
     	        if(errno!=11 || errno!= 0) {
     	            is_stop = true;
@@ -92,7 +93,7 @@ void TerminalClient::recvThread()
     char tempBuf[4096];
     while(!is_stop){
         int recvLen = recv(mSocket, tempBuf, 4096, 0);
-        //printf("recv data size[%d] errno[%d]\n",recvLen, errno);
+        //FLOGD("recv data size[%d] errno[%d]",recvLen, errno);
         if (recvLen <= 0) {
             if(recvLen==0 || (!(errno==11 || errno== 0))) {
                 //TODO::disconnect
@@ -127,7 +128,7 @@ void TerminalClient::sendData(char* data, int32_t size)
 {
     std::lock_guard<std::mutex> lock (mlock_send);
     if (sendBuf.size() > TERMINAL_MAX_BUFFER) {
-        printf("NOTE::terminalClient send buffer too max, wile clean %zu size", sendBuf.size());
+        FLOGD("NOTE::terminalClient send buffer too max, wile clean %zu size", sendBuf.size());
     	sendBuf.clear();
     }
     sendBuf.insert(sendBuf.end(), data, data + size);

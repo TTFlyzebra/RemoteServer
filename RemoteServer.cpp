@@ -13,12 +13,13 @@
 
 #include "RemoteServer.h"
 #include "Config.h"
+#include "FlyLog.h"
 
 RemoteServer::RemoteServer(ServerManager* manager)
 :mManager(manager)
 ,is_stop(false)
 {
-    printf("%s()\n", __func__);
+    FLOGD("%s()", __func__);
     mManager->registerListener(this);
     server_t = new std::thread(&RemoteServer::serverSocket, this);
     remove_t = new std::thread(&RemoteServer::removeClient, this);
@@ -26,7 +27,7 @@ RemoteServer::RemoteServer(ServerManager* manager)
 
 RemoteServer::~RemoteServer()
 {
-    printf("%s()\n", __func__);
+    FLOGD("%s()", __func__);
     mManager->unRegisterListener(this);
     is_stop = true;
     shutdown(server_socket, SHUT_RDWR);
@@ -61,7 +62,7 @@ RemoteServer::~RemoteServer()
     remove_t->join();
     delete server_t;
     delete remove_t;
-    printf("%s()\n", __func__);
+    FLOGD("%s()", __func__);
 }
 
 void RemoteServer::notify(char* data, int32_t size)
@@ -71,7 +72,7 @@ void RemoteServer::notify(char* data, int32_t size)
 
 void RemoteServer::serverSocket()
 {
-    printf("RemoteServer serverSocket start!\n");
+    FLOGD("RemoteServer serverSocket start!\n");
 	is_running = true;
     struct sockaddr_in t_sockaddr;
     memset(&t_sockaddr, 0, sizeof(t_sockaddr));
@@ -80,22 +81,22 @@ void RemoteServer::serverSocket()
     t_sockaddr.sin_port = htons(REMOTE_SERVER_TCP_PORT);
     server_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (server_socket < 0) {
-        printf("RemoteServer socket server error %s errno: %d\n", strerror(errno), errno);
+        FLOGD("RemoteServer socket server error %s errno: %d", strerror(errno), errno);
         return;
     }
     int32_t ret = bind(server_socket,(struct sockaddr *) &t_sockaddr,sizeof(t_sockaddr));
     if (ret < 0) {
-        printf( "RemoteServer bind %d socket error %s errno: %d\n", REMOTE_SERVER_TCP_PORT, strerror(errno), errno);
+        FLOGD( "RemoteServer bind %d socket error %s errno: %d", REMOTE_SERVER_TCP_PORT, strerror(errno), errno);
         return;
     }
     ret = listen(server_socket, 1024);
     if (ret < 0) {
-        printf("RemoteServer listen error %s errno: %d\n", strerror(errno), errno);
+        FLOGD("RemoteServer listen error %s errno: %d", strerror(errno), errno);
     }
     while(!is_stop) {
         int32_t client_socket = accept(server_socket, (struct sockaddr*)NULL, NULL);
         if(client_socket < 0) {
-            printf("RemoteServer accpet socket error: %s errno :%d\n", strerror(errno), errno);
+            FLOGD("RemoteServer accpet socket error: %s errno :%d", strerror(errno), errno);
             continue;
         }
         if(is_stop) break;
@@ -108,7 +109,7 @@ void RemoteServer::serverSocket()
         server_socket = -1;
     }
     is_running = false;
-    printf("RemoteServer serverSocket exit!\n");
+    FLOGD("RemoteServer serverSocket exit!\n");
 }
 
 

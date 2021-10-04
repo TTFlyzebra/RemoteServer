@@ -13,12 +13,13 @@
 
 #include "TerminalServer.h"
 #include "Config.h"
+#include "FlyLog.h"
 
 TerminalServer::TerminalServer(ServerManager* manager)
 :mManager(manager)
 ,is_stop(false)
 {
-    printf("%s()\n", __func__);
+    FLOGD("%s()", __func__);
     mManager->registerListener(this);
     server_t = new std::thread(&TerminalServer::serverSocket, this);
     remove_t = new std::thread(&TerminalServer::removeClient, this);
@@ -60,7 +61,7 @@ TerminalServer::~TerminalServer()
     remove_t->join();
     delete server_t;
     delete remove_t;
-    printf("%s()\n", __func__);
+    FLOGD("%s()", __func__);
 }
 
 void TerminalServer::notify(char* data, int32_t size)
@@ -70,7 +71,7 @@ void TerminalServer::notify(char* data, int32_t size)
 
 void TerminalServer::serverSocket()
 {
-    printf("TerminalServer serverSocket start!\n");
+    FLOGD("TerminalServer serverSocket start!\n");
 	is_running = true;
     struct sockaddr_in t_sockaddr;
     memset(&t_sockaddr, 0, sizeof(t_sockaddr));
@@ -79,22 +80,22 @@ void TerminalServer::serverSocket()
     t_sockaddr.sin_port = htons(TERMINAL_SERVER_TCP_PORT);
     server_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (server_socket < 0) {
-        printf("TerminalServer socket server error %s errno: %d\n", strerror(errno), errno);
+        FLOGD("TerminalServer socket server error %s errno: %d", strerror(errno), errno);
         return;
     }
     int32_t ret = bind(server_socket,(struct sockaddr *) &t_sockaddr,sizeof(t_sockaddr));
     if (ret < 0) {
-        printf( "TerminalServer bind %d socket error %s errno: %d\n", TERMINAL_SERVER_TCP_PORT, strerror(errno), errno);
+        FLOGD( "TerminalServer bind %d socket error %s errno: %d", TERMINAL_SERVER_TCP_PORT, strerror(errno), errno);
         return;
     }
     ret = listen(server_socket, 5);
     if (ret < 0) {
-        printf("TerminalServer listen error %s errno: %d\n", strerror(errno), errno);
+        FLOGD("TerminalServer listen error %s errno: %d", strerror(errno), errno);
     }
     while(!is_stop) {
         int32_t client_socket = accept(server_socket, (struct sockaddr*)NULL, NULL);
         if(client_socket < 0) {
-            printf("TerminalServer accpet socket error: %s errno :%d\n", strerror(errno), errno);
+            FLOGD("TerminalServer accpet socket error: %s errno :%d", strerror(errno), errno);
             continue;
         }
         if(is_stop) break;
@@ -107,7 +108,7 @@ void TerminalServer::serverSocket()
         server_socket = -1;
     }
     is_running = false;
-    printf("TerminalServer serverSocket exit!\n");
+    FLOGD("TerminalServer serverSocket exit!\n");
 }
 
 void TerminalServer::disconnectClient(TerminalClient* client)

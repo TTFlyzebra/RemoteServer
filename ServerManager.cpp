@@ -4,11 +4,12 @@
 
 #include "ServerManager.h"
 #include "Config.h"
+#include "FlyLog.h"
 
 ServerManager::ServerManager()
 :is_stop(false)
 {
-    printf("%s()\n", __func__);
+    FLOGD("%s()", __func__);
     data_t = new std::thread(&ServerManager::handleData, this);
 }
 
@@ -21,7 +22,7 @@ ServerManager::~ServerManager()
     }
     data_t->join();
     delete data_t;
-    printf("%s()\n", __func__);
+    FLOGD("%s()", __func__);
 }
 
 void ServerManager::registerListener(INotify* notify)
@@ -48,7 +49,7 @@ void ServerManager::updataAsync(char* data, int32_t size)
 {
     std::lock_guard<std::mutex> lock (mlock_data);
     if (dataBuf.size() > TERMINAL_MAX_BUFFER) {
-        printf("NOTE::terminalClient send buffer too max, will clean %zu size", dataBuf.size());
+        FLOGD("NOTE::terminalClient send buffer too max, will clean %zu size", dataBuf.size());
         dataBuf.clear();
     }
     dataBuf.insert(dataBuf.end(), data, data + size);
@@ -65,13 +66,13 @@ void ServerManager::handleData()
         if(is_stop) break;
         if(dataBuf.size()<8) continue;
         if(((dataBuf[0]&0xFF)!=0xEE)||((dataBuf[1]&0xFF)!=0xAA)){
-            printf("handleData bad header[%02x:%02x]\n", dataBuf[0]&0xFF, dataBuf[1]&0xFF);
+            FLOGD("handleData bad header[%02x:%02x]", dataBuf[0]&0xFF, dataBuf[1]&0xFF);
             dataBuf.clear();
             continue;
         }
         int32_t dataSize = dataBuf[4]<<24|dataBuf[5]<<16|dataBuf[6]<<8|dataBuf[7];
         if(dataSize+8>dataBuf.size()) {
-            printf("handleData size error, dataSize=%d, bufSize=%d\n", dataSize+8, dataBuf.size());
+            FLOGD("handleData size error, dataSize=%d, bufSize=%d", dataSize+8, dataBuf.size());
             continue;
         }
         updataSync(&dataBuf[0], dataSize+8);
