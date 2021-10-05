@@ -13,10 +13,18 @@
 #include <condition_variable>
 
 
+struct NotifyData {
+    int16_t head;
+    int16_t version;
+    int16_t type;
+    int32_t size;
+    char*   data;
+};
+
 class INotify{
 public:
     virtual ~INotify() {};
-    virtual void notify(char* data, int32_t size) = 0;
+    virtual int32_t notify(const char* data, int32_t size) = 0;
 };
 
 class ServerManager {
@@ -25,8 +33,11 @@ public:
     ~ServerManager();
     void registerListener(INotify* notify);
     void unRegisterListener(INotify* notify);
-    void updataSync(char* data, int32_t size);
-    void updataAsync(char* data, int32_t size);
+    void updataSync(const char* data, int32_t size);
+    void updataAsync(const char* data, int32_t size);
+    
+public:
+    std::mutex mlock_up;
     
 private:
     void handleData();

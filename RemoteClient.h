@@ -5,14 +5,7 @@
 #ifndef ANDROID_REMOTECLIENT_H
 #define ANDROID_REMOTECLIENT_H
 
-#include <stdint.h>
-#include <vector>
-#include <mutex>
-#include <thread>
-#include <condition_variable>
-#include <unistd.h>
 #include "ServerManager.h"
-
 
 class RemoteServer;
 
@@ -22,13 +15,14 @@ public:
     ~RemoteClient();
 
 public:
-    virtual void notify(char* data, int32_t size);
+    virtual int32_t notify(const char* data, int32_t size);
 
 private:
-    void sendThread();
     void recvThread();
+    void sendThread();
     void handleData();
-    void sendData(char* data, int32_t size);
+    void sendData(const char* data, int32_t size);
+    void disConnect();
 
 private:
     volatile bool is_stop;

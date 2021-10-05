@@ -51,10 +51,10 @@ static int32_t configureSignals() {
 
 int32_t main(int32_t  argc,  char*  argv[])
 {
-    FLOGD("main server is start.\n");
+    FLOGD("main server is start.");
     isStop = false;
     if (configureSignals() != 0) {
-        FLOGD("configure Signals failed!\n");
+        FLOGD("configure Signals failed!");
     }
     ServerManager *manager = new ServerManager();
     TerminalServer *terminal = new TerminalServer(manager);
@@ -65,6 +65,6 @@ int32_t main(int32_t  argc,  char*  argv[])
     delete terminal;
     delete remote;
     delete manager;
-    FLOGD("main server is end.\n");
+    FLOGD("main server is end.");
 }
 

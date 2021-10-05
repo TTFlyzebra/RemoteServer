@@ -1,10 +1,13 @@
 //
 // Created by FlyZebra on 2021/9/16 0016.
 //
+#include <stdio.h>
 #include <errno.h>
 #include <sys/socket.h>
-#include <unistd.h>
-#include <errno.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <string.h>
+
 #include "TerminalClient.h"
 #include "TerminalServer.h"
 #include "Config.h"
@@ -48,55 +51,35 @@ TerminalClient::~TerminalClient()
     FLOGD("%s()", __func__);
 }
 
-void TerminalClient::notify(char* data, int32_t size)
+int32_t TerminalClient::notify(const char* data, int32_t size)
 {
     char temp[256] = {0};
-	int32_t num = size<64?size:64;
+    int32_t num = size<32?size:32;
     for (int32_t i = 0; i < num; i++) {
         sprintf(temp, "%s%02x:", temp, data[i]&0xFF);
     }
-    FLOGD("notify data:%s", temp);
-}
-
-void TerminalClient::sendThread()
-{
-    while (!is_stop) {
-        std::unique_lock<std::mutex> lock (mlock_send);
-    	while(!is_stop &&sendBuf.empty()) {
-    	    mcond_send.wait(lock);
-    	}
-        if(is_stop) break;
-    	int32_t sendSize = 0;
-    	int32_t dataSize = sendBuf.size();
-    	while(!is_stop && sendSize<dataSize){
-    	    int32_t sendLen = send(mSocket,(const char*)&sendBuf[sendSize],dataSize-sendSize, 0);
-    	    FLOGD("send data size[%d] errno[%d]",sendLen, errno);
-    	    if (sendLen < 0) {
-    	        if(errno!=11 || errno!= 0) {
-    	            is_stop = true;
-    	            break;
-    	        }
-    	    }else{
-    	        sendSize+=sendLen;
-    	    }
-    	}
-    	sendBuf.clear();
+    FLOGD("notify:%s[%d]", temp, size);
+    struct NotifyData* notifyData = (struct NotifyData*)data;
+    switch (notifyData->type){
+    case 0x0102:
+    case 0x0202:
+        sendData(data, size);
+        return 0;
     }
-    if(!is_disconnect){
-        is_disconnect = true;
-        mServer->disconnectClient(this);
-    }
+    return -1;
+    
 }
 
 void TerminalClient::recvThread()
 {
     char tempBuf[4096];
     while(!is_stop){
+        memset(tempBuf,0,4096);
         int recvLen = recv(mSocket, tempBuf, 4096, 0);
-        //FLOGD("recv data size[%d] errno[%d]",recvLen, errno);
+        //FLOGD("TerminalClient recv:len=[%d], errno=[%d]\n%s", recvLen, errno, tempBuf);
         if (recvLen <= 0) {
             if(recvLen==0 || (!(errno==11 || errno== 0))) {
-                //TODO::disconnect
+                is_stop = true;
                 break;
             }
         }else{
@@ -105,10 +88,31 @@ void TerminalClient::recvThread()
             mcond_recv.notify_one();
         }
     }
-    if(!is_disconnect){
-        is_disconnect = true;
-        mServer->disconnectClient(this);
+    disConnect();
+}
+
+void TerminalClient::sendThread()
+{
+     while (!is_stop) {
+        std::unique_lock<std::mutex> lock (mlock_send);
+    	while(!is_stop &&sendBuf.empty()) {
+    	    mcond_send.wait(lock);
+    	}
+        if(is_stop) break;
+    	while(!is_stop && !sendBuf.empty()){
+    	    int32_t sendLen = send(mSocket,(const char*)&sendBuf[0],sendBuf.size(), 0);
+    	    if (sendLen < 0) {
+    	        if(errno != 11 || errno != 0) {
+    	            is_stop = true;
+                    FLOGE("TerminalClient send error, len=[%d] errno[%d]!",sendLen, errno);
+    	            break;
+    	        }
+    	    }else{
+                sendBuf.erase(sendBuf.begin(),sendBuf.begin()+sendLen);
+    	    }
+    	}
     }
+    disConnect();
 }
 
 void TerminalClient::handleData()
@@ -124,13 +128,22 @@ void TerminalClient::handleData()
     }
 }
 
-void TerminalClient::sendData(char* data, int32_t size)
+void TerminalClient::sendData(const char* data, int32_t size)
 {
     std::lock_guard<std::mutex> lock (mlock_send);
     if (sendBuf.size() > TERMINAL_MAX_BUFFER) {
-        FLOGD("NOTE::terminalClient send buffer too max, wile clean %zu size", sendBuf.size());
+        FLOGD("NOTE::terminalClient send buffer send buffer too max, wile clean %zu size", sendBuf.size());
     	sendBuf.clear();
     }
     sendBuf.insert(sendBuf.end(), data, data + size);
     mcond_send.notify_one();
 }
+
+void TerminalClient::disConnect()
+{
+    if(!is_disconnect){
+        is_disconnect = true;
+        mServer->disconnectClient(this);
+    }
+}
+

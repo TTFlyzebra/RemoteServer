@@ -65,14 +65,14 @@ RemoteServer::~RemoteServer()
     FLOGD("%s()", __func__);
 }
 
-void RemoteServer::notify(char* data, int32_t size)
+int32_t RemoteServer::notify(const char* data, int32_t size)
 {
 
 }
 
 void RemoteServer::serverSocket()
 {
-    FLOGD("RemoteServer serverSocket start!\n");
+    FLOGD("RemoteServer serverSocket start!");
 	is_running = true;
     struct sockaddr_in t_sockaddr;
     memset(&t_sockaddr, 0, sizeof(t_sockaddr));
@@ -109,15 +109,7 @@ void RemoteServer::serverSocket()
         server_socket = -1;
     }
     is_running = false;
-    FLOGD("RemoteServer serverSocket exit!\n");
-}
-
-
-void RemoteServer::disconnectClient(RemoteClient* client)
-{
-    std::lock_guard<std::mutex> lock (mlock_remove);
-    remove_clients.push_back(client);
-    mcond_remove.notify_one();
+    FLOGD("RemoteServer serverSocket exit!");
 }
 
 void RemoteServer::removeClient()
@@ -138,3 +130,11 @@ void RemoteServer::removeClient()
         remove_clients.clear();
     }
 }
+
+void RemoteServer::disconnectClient(RemoteClient* client)
+{
+    std::lock_guard<std::mutex> lock (mlock_remove);
+    remove_clients.push_back(client);
+    mcond_remove.notify_one();
+}
+

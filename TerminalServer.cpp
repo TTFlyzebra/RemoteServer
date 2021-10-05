@@ -30,22 +30,7 @@ TerminalServer::~TerminalServer()
     mManager->unRegisterListener(this);
     is_stop = true;
     shutdown(server_socket, SHUT_RDWR);
-    if(server_socket >= 0){
-        close(server_socket);
-        server_socket = -1;
-        //try connect once for exit accept block
-        int32_t socket_temp = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-        struct sockaddr_in servaddr;
-        memset(&servaddr, 0, sizeof(servaddr));
-        servaddr.sin_family = AF_INET;
-        servaddr.sin_port = htons(TERMINAL_SERVER_TCP_PORT);
-        servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
-        connect(socket_temp, (struct sockaddr *) &servaddr, sizeof(servaddr));
-        close(socket_temp);
-    }else{
-       close(server_socket);
-       server_socket = -1;
-    }
+    close(server_socket);
     {
         std::lock_guard<std::mutex> lock (mlock_server);
         for (std::list<TerminalClient*>::iterator it = terminal_clients.begin(); it != terminal_clients.end(); ++it) {
@@ -57,6 +42,7 @@ TerminalServer::~TerminalServer()
         std::lock_guard<std::mutex> lock (mlock_remove);
         mcond_remove.notify_one();
     }
+    
     server_t->join();
     remove_t->join();
     delete server_t;
@@ -64,14 +50,20 @@ TerminalServer::~TerminalServer()
     FLOGD("%s()", __func__);
 }
 
-void TerminalServer::notify(char* data, int32_t size)
+int32_t TerminalServer::notify(const char* data, int32_t size)
 {
+    //char temp[256] = {0};
+	//int32_t num = size<18?size:18;
+    //for (int32_t i = 0; i < num; i++) {
+    //    sprintf(temp, "%s%02x:", temp, data[i]&0xFF);
+    //}
+    //FLOGD("notify:%s[%d]", temp, size);
 
 }
 
 void TerminalServer::serverSocket()
 {
-    FLOGD("TerminalServer serverSocket start!\n");
+    FLOGD("TerminalServer serverSocket start!");
 	is_running = true;
     struct sockaddr_in t_sockaddr;
     memset(&t_sockaddr, 0, sizeof(t_sockaddr));
@@ -108,14 +100,7 @@ void TerminalServer::serverSocket()
         server_socket = -1;
     }
     is_running = false;
-    FLOGD("TerminalServer serverSocket exit!\n");
-}
-
-void TerminalServer::disconnectClient(TerminalClient* client)
-{
-    std::lock_guard<std::mutex> lock (mlock_remove);
-    remove_clients.push_back(client);
-    mcond_remove.notify_one();
+    FLOGD("TerminalServer serverSocket exit!");
 }
 
 void TerminalServer::removeClient()
@@ -135,4 +120,11 @@ void TerminalServer::removeClient()
         }
         remove_clients.clear();
     }
+}
+
+void TerminalServer::disconnectClient(TerminalClient* client)
+{
+    std::lock_guard<std::mutex> lock (mlock_remove);
+    remove_clients.push_back(client);
+    mcond_remove.notify_one();
 }

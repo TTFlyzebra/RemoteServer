@@ -23,7 +23,7 @@ public:
     void disconnectClient(TerminalClient *client);
 
 public:
-    virtual void notify(char* data, int32_t size);
+    virtual int32_t notify(const char* data, int32_t size);
 
 private:
     void serverSocket();

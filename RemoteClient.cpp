@@ -1,10 +1,13 @@
 //
 // Created by FlyZebra on 2021/9/16 0016.
 //
+#include <stdio.h>
 #include <errno.h>
 #include <sys/socket.h>
-#include <unistd.h>
-#include <errno.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <string.h>
+
 #include "RemoteClient.h"
 #include "RemoteServer.h"
 #include "Config.h"
@@ -20,6 +23,7 @@ RemoteClient::RemoteClient(RemoteServer* server, ServerManager* manager, int32_t
 {
     FLOGD("%s()", __func__);
     mManager->registerListener(this);
+    mManager->updataAsync((const char*)encoderstart,sizeof(encoderstart));
     recv_t = new std::thread(&RemoteClient::recvThread, this);
     send_t = new std::thread(&RemoteClient::sendThread, this);
     hand_t = new std::thread(&RemoteClient::handleData, this);
@@ -27,6 +31,7 @@ RemoteClient::RemoteClient(RemoteServer* server, ServerManager* manager, int32_t
 
 RemoteClient::~RemoteClient()
 {
+    mManager->updataAsync((const char*)encoderstop,sizeof(encoderstop));
     mManager->unRegisterListener(this);
     is_stop = true;
     shutdown(mSocket, SHUT_RDWR);
@@ -48,9 +53,40 @@ RemoteClient::~RemoteClient()
     FLOGD("%s()", __func__);
 }
 
-void RemoteClient::notify(char* data, int32_t size)
+int32_t RemoteClient::notify(const char* data, int32_t size)
 {
+    struct NotifyData* notifyData = (struct NotifyData*)data;
+    int32_t len = data[6] << 24 | data[7] << 16 | data[8] << 8 | data[9];
+    int32_t pts = data[18] << 24 | data[19] << 16 | data[20] << 8 | data[21];
+    switch (notifyData->type) {
+    case 0x0302:
+    case 0x0402:
+    case 0x0502:
+        sendData(data, size);
+        return -1;
+    }
+    return -1;
+}
 
+void RemoteClient::recvThread()
+{
+    char tempBuf[4096];
+    while(!is_stop){
+        memset(tempBuf, 0, 4096);
+        int recvLen = recv(mSocket, tempBuf, 4096, 0);
+        //FLOGD("RemoteClient recv:len=[%d], errno=[%d]\n%s", recvLen, errno, tempBuf);
+        if (recvLen <= 0) {
+            if(recvLen==0 || (!(errno==11 || errno== 0))) {
+                is_stop = true;
+                break;
+            }
+        }else{
+            std::lock_guard<std::mutex> lock (mlock_recv);
+            recvBuf.insert(recvBuf.end(), tempBuf, tempBuf+recvLen);
+            mcond_recv.notify_one();
+        }
+    }
+    disConnect();
 }
 
 void RemoteClient::sendThread()
@@ -61,49 +97,20 @@ void RemoteClient::sendThread()
     	    mcond_send.wait(lock);
     	}
         if(is_stop) break;
-    	int32_t sendSize = 0;
-    	int32_t dataSize = sendBuf.size();
-    	while(!is_stop && sendSize<dataSize){
-    	    int32_t sendLen = send(mSocket,(const char*)&sendBuf[sendSize],dataSize-sendSize, 0);
-    	    FLOGD("send data size[%d] errno[%d]",sendLen, errno);
+    	while(!is_stop && !sendBuf.empty()){
+    	    int32_t sendLen = send(mSocket,(const char*)&sendBuf[0],sendBuf.size(), 0);
     	    if (sendLen < 0) {
-    	        if(errno!=11 || errno!= 0) {
+    	        if(errno != 11 || errno != 0) {
     	            is_stop = true;
+                    FLOGE("RemoteClient send error, len=[%d] errno[%d]!",sendLen, errno);
     	            break;
     	        }
     	    }else{
-    	        sendSize+=sendLen;
+                sendBuf.erase(sendBuf.begin(),sendBuf.begin()+sendLen);
     	    }
     	}
-    	sendBuf.clear();
     }
-    if(!is_disconnect){
-        is_disconnect = true;
-        mServer->disconnectClient(this);
-    }
-}
-
-void RemoteClient::recvThread()
-{
-    char tempBuf[4096];
-    while(!is_stop){
-        int recvLen = recv(mSocket, tempBuf, 4096, 0);
-        //FLOGD("recv data size[%d] errno[%d]",recvLen, errno);
-        if (recvLen <= 0) {
-            if(recvLen==0 || (!(errno==11 || errno== 0))) {
-                //TODO::disconnect
-                break;
-            }
-        }else{
-            std::lock_guard<std::mutex> lock (mlock_recv);
-            recvBuf.insert(recvBuf.end(), tempBuf, tempBuf+recvLen);
-            mcond_recv.notify_one();
-        }
-    }
-    if(!is_disconnect){
-        is_disconnect = true;
-        mServer->disconnectClient(this);
-    }
+    disConnect();
 }
 
 void RemoteClient::handleData()
@@ -119,13 +126,22 @@ void RemoteClient::handleData()
     }
 }
 
-void RemoteClient::sendData(char* data, int32_t size)
+void RemoteClient::sendData(const char* data, int32_t size)
 {
     std::lock_guard<std::mutex> lock (mlock_send);
     if (sendBuf.size() > TERMINAL_MAX_BUFFER) {
-        FLOGD("NOTE::RemoteClient send buffer too max, wile clean %zu size", sendBuf.size());
+        //FLOGD("NOTE::RemoteClient send buffer too max, wile clean %zu size", sendBuf.size());
     	sendBuf.clear();
     }
     sendBuf.insert(sendBuf.end(), data, data + size);
     mcond_send.notify_one();
 }
+
+void RemoteClient::disConnect()
+{
+    if(!is_disconnect){
+        is_disconnect = true;
+        mServer->disconnectClient(this);
+    }
+}
+
