@@ -52,12 +52,6 @@ TerminalServer::~TerminalServer()
 
 int32_t TerminalServer::notify(const char* data, int32_t size)
 {
-    //char temp[256] = {0};
-	//int32_t num = size<18?size:18;
-    //for (int32_t i = 0; i < num; i++) {
-    //    sprintf(temp, "%s%02x:", temp, data[i]&0xFF);
-    //}
-    //FLOGD("notify:%s[%d]", temp, size);
 
 }
 

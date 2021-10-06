@@ -31,22 +31,7 @@ RemoteServer::~RemoteServer()
     mManager->unRegisterListener(this);
     is_stop = true;
     shutdown(server_socket, SHUT_RDWR);
-    if(server_socket >= 0){
-        close(server_socket);
-        server_socket = -1;
-        //try connect once for exit accept block
-        int32_t temp_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-        struct sockaddr_in servaddr;
-        memset(&servaddr, 0, sizeof(servaddr));
-        servaddr.sin_family = AF_INET;
-        servaddr.sin_port = htons(REMOTE_SERVER_TCP_PORT);
-        servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
-        connect(temp_socket, (struct sockaddr *) &servaddr, sizeof(servaddr));
-        close(temp_socket);
-    }else{
-       close(server_socket);
-       server_socket = -1;
-    }
+    close(server_socket);
     {
         std::lock_guard<std::mutex> lock (mlock_server);
         for (std::list<RemoteClient*>::iterator it = remote_clients.begin(); it != remote_clients.end(); ++it) {

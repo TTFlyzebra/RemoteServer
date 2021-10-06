@@ -5,6 +5,8 @@
 #ifndef ANDROID_REMOTECLIENT_H
 #define ANDROID_REMOTECLIENT_H
 
+#include <sys/select.h>
+#include <sys/time.h>
 #include "ServerManager.h"
 
 class RemoteServer;
@@ -42,6 +44,9 @@ private:
     std::vector<char> recvBuf;
     std::mutex mlock_recv;
     std::condition_variable mcond_recv;
+
+    fd_set set;
+    struct timeval tv;
 };
 
 

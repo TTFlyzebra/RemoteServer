@@ -7,6 +7,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <string.h>
+#include <fcntl.h>
 
 #include "TerminalClient.h"
 #include "TerminalServer.h"
@@ -26,6 +27,9 @@ TerminalClient::TerminalClient(TerminalServer* server, ServerManager* manager, i
     recv_t = new std::thread(&TerminalClient::recvThread, this);
     send_t = new std::thread(&TerminalClient::sendThread, this);
     hand_t = new std::thread(&TerminalClient::handleData, this);
+
+    int flags = fcntl(mSocket, F_GETFL, 0);
+    fcntl(mSocket, F_SETFL, flags | O_NONBLOCK);
 }
 
 TerminalClient::~TerminalClient()
@@ -53,16 +57,16 @@ TerminalClient::~TerminalClient()
 
 int32_t TerminalClient::notify(const char* data, int32_t size)
 {
-    char temp[256] = {0};
-    int32_t num = size<32?size:32;
-    for (int32_t i = 0; i < num; i++) {
-        sprintf(temp, "%s%02x:", temp, data[i]&0xFF);
-    }
-    FLOGD("notify:%s[%d]", temp, size);
+    //char temp[256] = {0};
+    //int32_t num = size<20?size:20;
+    //for (int32_t i = 0; i < num; i++) {
+    //    sprintf(temp, "%s%02x:", temp, data[i]&0xFF);
+    //}
+    //FLOGD("TerminalClient notify:%s[%d]", temp, size);
     struct NotifyData* notifyData = (struct NotifyData*)data;
     switch (notifyData->type){
-    case 0x0102:
-    case 0x0202:
+    case 0x0102://STARTRECORD:R->T 
+    case 0x0202://STOPRECORD:R->T
         sendData(data, size);
         return 0;
     }
@@ -77,15 +81,15 @@ void TerminalClient::recvThread()
         memset(tempBuf,0,4096);
         int recvLen = recv(mSocket, tempBuf, 4096, 0);
         //FLOGD("TerminalClient recv:len=[%d], errno=[%d]\n%s", recvLen, errno, tempBuf);
-        if (recvLen <= 0) {
+        if(recvLen>0){
+            std::lock_guard<std::mutex> lock (mlock_recv);
+            recvBuf.insert(recvBuf.end(), tempBuf, tempBuf+recvLen);
+            mcond_recv.notify_one();
+        }else if (recvLen <= 0) {
             if(recvLen==0 || (!(errno==11 || errno== 0))) {
                 is_stop = true;
                 break;
             }
-        }else{
-            std::lock_guard<std::mutex> lock (mlock_recv);
-            recvBuf.insert(recvBuf.end(), tempBuf, tempBuf+recvLen);
-            mcond_recv.notify_one();
         }
     }
     disConnect();
@@ -101,14 +105,18 @@ void TerminalClient::sendThread()
         if(is_stop) break;
     	while(!is_stop && !sendBuf.empty()){
     	    int32_t sendLen = send(mSocket,(const char*)&sendBuf[0],sendBuf.size(), 0);
-    	    if (sendLen < 0) {
-    	        if(errno != 11 || errno != 0) {
-    	            is_stop = true;
-                    FLOGE("TerminalClient send error, len=[%d] errno[%d]!",sendLen, errno);
-    	            break;
-    	        }
-    	    }else{
+            if(sendLen>0){
                 sendBuf.erase(sendBuf.begin(),sendBuf.begin()+sendLen);
+    	    }else if (sendLen < 0) {
+    	        if(errno == 11) {
+                    //TODO::maybe network is slowly!
+                    FLOGE("TerminalClient->sendThread len[%d],errno[%d]",sendLen, errno);
+                    continue;
+                } else {
+                    FLOGE("TerminalClient send error, len=[%d] errno[%d]!",sendLen, errno);
+    	            is_stop = true;
+                    break;
+    	        }
     	    }
     	}
     }
@@ -118,13 +126,29 @@ void TerminalClient::sendThread()
 void TerminalClient::handleData()
 {
     while(!is_stop){
-        std::unique_lock<std::mutex> lock (mlock_recv);
-        while (!is_stop && recvBuf.empty()) {
-            mcond_recv.wait(lock);
+        {
+            std::unique_lock<std::mutex> lock (mlock_recv);
+            while (!is_stop && recvBuf.size() < 20) {
+                mcond_recv.wait(lock);
+            }
+            if(is_stop) break;
+            if(((recvBuf[0]&0xFF)!=0xEE)||((recvBuf[1]&0xFF)!=0xAA)){
+                FLOGE("TerminalClient handleData bad header[%02x:%02x]", recvBuf[0]&0xFF, recvBuf[1]&0xFF);
+                recvBuf.clear();
+                continue;
+            }
         }
-        if(is_stop) break;
-        mManager->updataAsync(&recvBuf[0], recvBuf.size());
-        recvBuf.clear();    
+        {
+            std::unique_lock<std::mutex> lock (mlock_recv);
+            int32_t dLen = (recvBuf[6]&0xFF)<<24|(recvBuf[7]&0xFF)<<16|(recvBuf[8]&0xFF)<<8|(recvBuf[9]&0xFF);
+            int32_t aLen = dLen + 10;
+            while(!is_stop && (aLen>recvBuf.size())) {
+                mcond_recv.wait(lock);
+            }
+            if(is_stop) break;
+            mManager->updataSync(&recvBuf[0], aLen);
+            recvBuf.erase(recvBuf.begin(),recvBuf.begin()+aLen);
+        }
     }
 }
 
@@ -132,7 +156,7 @@ void TerminalClient::sendData(const char* data, int32_t size)
 {
     std::lock_guard<std::mutex> lock (mlock_send);
     if (sendBuf.size() > TERMINAL_MAX_BUFFER) {
-        FLOGD("NOTE::terminalClient send buffer send buffer too max, wile clean %zu size", sendBuf.size());
+        FLOGE("TerminalClient send buffer too max, wile clean %zu size", sendBuf.size());
     	sendBuf.clear();
     }
     sendBuf.insert(sendBuf.end(), data, data + size);

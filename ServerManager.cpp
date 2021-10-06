@@ -57,7 +57,7 @@ void ServerManager::updataAsync(const char* data, int32_t size)
 {
     std::lock_guard<std::mutex> lock (mlock_data);
     if (dataBuf.size() > TERMINAL_MAX_BUFFER) {
-        FLOGE("NOTE::ServerManager updataAsync buffer too max, will clean %zu size", dataBuf.size());
+        FLOGE("ServerManager updataAsync buffer too max, will clean %zu size", dataBuf.size());
         dataBuf.clear();
     }
     dataBuf.insert(dataBuf.end(), data, data + size);
@@ -74,16 +74,11 @@ void ServerManager::handleData()
             }
             if(is_stop) break;
             if(((dataBuf[0]&0xFF)!=0xEE)||((dataBuf[1]&0xFF)!=0xAA)){
-                FLOGE("handleData bad header[%02x:%02x]", dataBuf[0]&0xFF, dataBuf[1]&0xFF);
+                FLOGE("ServerManager handleData bad header[%02x:%02x]", dataBuf[0]&0xFF, dataBuf[1]&0xFF);
                 dataBuf.clear();
                 continue;
             }
         }
-        //char temp[64] = {0};
-        //for (int32_t i = 0; i < 18; i++) {
-        //    sprintf(temp, "%s%02x:", temp, dataBuf[i]&0xFF);
-        //}
-        //FLOGE("notify:->%s", temp);
         {
             std::unique_lock<std::mutex> lock (mlock_data);
             int32_t dLen = (dataBuf[6]&0xFF)<<24|(dataBuf[7]&0xFF)<<16|(dataBuf[8]&0xFF)<<8|(dataBuf[9]&0xFF);
