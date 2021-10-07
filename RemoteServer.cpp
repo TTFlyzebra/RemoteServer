@@ -52,7 +52,7 @@ RemoteServer::~RemoteServer()
 
 int32_t RemoteServer::notify(const char* data, int32_t size)
 {
-
+    return 0;
 }
 
 void RemoteServer::serverSocket()

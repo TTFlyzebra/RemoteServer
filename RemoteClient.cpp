@@ -28,7 +28,6 @@ RemoteClient::RemoteClient(RemoteServer* server, ServerManager* manager, int32_t
     //FD_ZERO(&set);
     //FD_SET(mSocket, &set);    
     mManager->registerListener(this);
-    mManager->updataSync((const char*)encoderstart,sizeof(encoderstart));
     recv_t = new std::thread(&RemoteClient::recvThread, this);
     send_t = new std::thread(&RemoteClient::sendThread, this);
     hand_t = new std::thread(&RemoteClient::handleData, this); 
@@ -37,7 +36,6 @@ RemoteClient::RemoteClient(RemoteServer* server, ServerManager* manager, int32_t
 RemoteClient::~RemoteClient()
 {
     //FD_CLR(mSocket,&set);
-    mManager->updataSync((const char*)encoderstop,sizeof(encoderstop));
     mManager->unRegisterListener(this);
     is_stop = true;    
     shutdown(mSocket, SHUT_RDWR);
@@ -62,16 +60,14 @@ RemoteClient::~RemoteClient()
 int32_t RemoteClient::notify(const char* data, int32_t size)
 {
     struct NotifyData* notifyData = (struct NotifyData*)data;
-    int32_t len = data[6] << 24 | data[7] << 16 | data[8] << 8 | data[9];
-    int32_t pts = data[18] << 24 | data[19] << 16 | data[20] << 8 | data[21];
-    switch (notifyData->type) {
-    case 0x0302://SPSPPS:T->R
-    case 0x0402://VIDEO:T->R
-    case 0x0502://AUDIO:T->R
+    switch (notifyData->type) {    
+    case TYPE_VIDEO_DATA:
+    case TYPE_AUDIO_DATA:
+    case TYPE_SPSPPS_DATA:
         sendData(data, size);
-        return -1;
+        return 1;
     }
-    return -1;
+    return 0;
 }
 
 void RemoteClient::recvThread()
@@ -141,7 +137,7 @@ void RemoteClient::handleData()
     while(!is_stop){
         {
             std::unique_lock<std::mutex> lock (mlock_recv);
-            while (!is_stop && recvBuf.size() < 20) {
+            while (!is_stop && recvBuf.size() < 8) {
                 mcond_recv.wait(lock);
             }
             if(is_stop) break;
@@ -153,8 +149,8 @@ void RemoteClient::handleData()
         }
         {
             std::unique_lock<std::mutex> lock (mlock_recv);
-            int32_t dLen = (recvBuf[6]&0xFF)<<24|(recvBuf[7]&0xFF)<<16|(recvBuf[8]&0xFF)<<8|(recvBuf[9]&0xFF);
-            int32_t aLen = dLen + 10;
+            int32_t dLen = (recvBuf[4]&0xFF)<<24|(recvBuf[5]&0xFF)<<16|(recvBuf[6]&0xFF)<<8|(recvBuf[7]&0xFF);
+            int32_t aLen = dLen + 8;
             while(!is_stop && (aLen>recvBuf.size())) {
                 mcond_recv.wait(lock);
             }

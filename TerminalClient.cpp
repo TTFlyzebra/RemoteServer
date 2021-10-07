@@ -57,20 +57,19 @@ TerminalClient::~TerminalClient()
 
 int32_t TerminalClient::notify(const char* data, int32_t size)
 {
-    //char temp[256] = {0};
-    //int32_t num = size<20?size:20;
-    //for (int32_t i = 0; i < num; i++) {
-    //    sprintf(temp, "%s%02x:", temp, data[i]&0xFF);
-    //}
-    //FLOGD("TerminalClient notify:%s[%d]", temp, size);
     struct NotifyData* notifyData = (struct NotifyData*)data;
     switch (notifyData->type){
-    case 0x0102://STARTRECORD:R->T 
-    case 0x0202://STOPRECORD:R->T
+    case TYPE_HEARTBEAT_R:    
+    case TYPE_HEARTBEAT_VIDEO:
+    case TYPE_HEARTBEAT_AUDIO:
+    case TYPE_VIDEO_START:
+    case TYPE_VIDEO_STOP:
+    case TYPE_AUDIO_START:
+    case TYPE_AUDIO_STOP:        
         sendData(data, size);
-        return 0;
+        return 1;
     }
-    return -1;
+    return 0;
     
 }
 
@@ -128,7 +127,7 @@ void TerminalClient::handleData()
     while(!is_stop){
         {
             std::unique_lock<std::mutex> lock (mlock_recv);
-            while (!is_stop && recvBuf.size() < 20) {
+            while (!is_stop && recvBuf.size() < 8) {
                 mcond_recv.wait(lock);
             }
             if(is_stop) break;
@@ -140,8 +139,8 @@ void TerminalClient::handleData()
         }
         {
             std::unique_lock<std::mutex> lock (mlock_recv);
-            int32_t dLen = (recvBuf[6]&0xFF)<<24|(recvBuf[7]&0xFF)<<16|(recvBuf[8]&0xFF)<<8|(recvBuf[9]&0xFF);
-            int32_t aLen = dLen + 10;
+            int32_t dLen = (recvBuf[4]&0xFF)<<24|(recvBuf[5]&0xFF)<<16|(recvBuf[6]&0xFF)<<8|(recvBuf[7]&0xFF);
+            int32_t aLen = dLen + 8;
             while(!is_stop && (aLen>recvBuf.size())) {
                 mcond_recv.wait(lock);
             }

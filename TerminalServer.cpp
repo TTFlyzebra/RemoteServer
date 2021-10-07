@@ -14,6 +14,7 @@
 #include "TerminalServer.h"
 #include "Config.h"
 #include "FlyLog.h"
+#include "Command.h"
 
 TerminalServer::TerminalServer(ServerManager* manager)
 :mManager(manager)
@@ -52,7 +53,24 @@ TerminalServer::~TerminalServer()
 
 int32_t TerminalServer::notify(const char* data, int32_t size)
 {
-
+    struct NotifyData* notifyData = (struct NotifyData*)data;
+    switch (notifyData->type){
+    case TYPE_VIDEO_DATA:
+    case TYPE_AUDIO_DATA:
+    case TYPE_SPSPPS_DATA:
+        return 0;
+    default:
+        {
+            char temp[256] = {0};
+            int num = size<24?size:24;
+            for (int32_t i = 0; i < num; i++) {
+                sprintf(temp, "%s%02x:", temp, data[i]&0xFF);
+            }
+            FLOGE("notify:->%s", temp);
+        }
+        return 0;
+    }
+    return 0;
 }
 
 void TerminalServer::serverSocket()
