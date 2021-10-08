@@ -63,7 +63,7 @@ void RemoteServer::serverSocket()
     memset(&t_sockaddr, 0, sizeof(t_sockaddr));
     t_sockaddr.sin_family = AF_INET;
     t_sockaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-    t_sockaddr.sin_port = htons(REMOTE_SERVER_TCP_PORT);
+    t_sockaddr.sin_port = htons(REMOTEPC_SERVER_TCP_PORT);
     server_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (server_socket < 0) {
         FLOGD("RemoteServer socket server error %s errno: %d", strerror(errno), errno);
@@ -71,7 +71,7 @@ void RemoteServer::serverSocket()
     }
     int32_t ret = bind(server_socket,(struct sockaddr *) &t_sockaddr,sizeof(t_sockaddr));
     if (ret < 0) {
-        FLOGD( "RemoteServer bind %d socket error %s errno: %d", REMOTE_SERVER_TCP_PORT, strerror(errno), errno);
+        FLOGD( "RemoteServer bind %d socket error %s errno: %d", REMOTEPC_SERVER_TCP_PORT, strerror(errno), errno);
         return;
     }
     ret = listen(server_socket, 1024);

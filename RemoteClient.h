@@ -8,6 +8,17 @@
 #include <sys/select.h>
 #include <sys/time.h>
 #include "ServerManager.h"
+#include <map>
+
+struct Terminal{
+	char tid[8];
+};
+
+struct User {
+	char uid[8];
+	char name[256];
+	std::map<Terminal> terminals;
+};
 
 class RemoteServer;
 
@@ -25,6 +36,9 @@ private:
     void handleData();
     void sendData(const char* data, int32_t size);
     void disConnect();
+
+public
+	User mUser;
 
 private:
     volatile bool is_stop;
