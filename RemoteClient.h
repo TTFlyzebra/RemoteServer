@@ -8,7 +8,7 @@
 #include <sys/select.h>
 #include <sys/time.h>
 #include "ServerManager.h"
-#include <map>
+#include <set>
 
 struct Terminal{
 	char tid[8];
@@ -17,7 +17,7 @@ struct Terminal{
 struct User {
 	char uid[8];
 	char name[256];
-	std::map<Terminal> terminals;
+	std::set<Terminal> terminal;
 };
 
 class RemoteServer;
@@ -37,7 +37,7 @@ private:
     void sendData(const char* data, int32_t size);
     void disConnect();
 
-public
+public:
 	User mUser;
 
 private:
