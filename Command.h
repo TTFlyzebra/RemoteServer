@@ -31,6 +31,19 @@ static const unsigned char HEARTBEAT_R[16] = {
 static const int16_t TYPE_HEARTBEAT_R = 0x0201;
 
 //r-->t
+//remote connect heartbeat check
+//2byte	header EEAA
+//2byte	0102
+//4byte	data length
+//8byte	UID
+//......TID LIST
+static const unsigned char TERMINAL_LIST[16] = {
+	0xEE,0xAA,0x01,0x03,0x00,0x00,0x00,0x00,
+	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+};
+static const int16_t TYPE_TERMINAL_LIST = 0x0301;
+
+//r-->t
 //start video data
 //2byte	header EEAA
 //2byte	0201

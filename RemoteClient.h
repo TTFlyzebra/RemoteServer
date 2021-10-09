@@ -8,7 +8,6 @@
 #include <sys/select.h>
 #include <sys/time.h>
 #include "ServerManager.h"
-#include <set>
 
 class RemoteServer;
 
@@ -28,15 +27,15 @@ private:
     void disConnect();
 
 private:
-	struct Terminal{
-	char tid[8];
-	char name[256];
+	struct Terminal {
+		char tid[8];
+		char name[256];
 	};
-
+	
 	struct User {
 		char uid[8];
 		char name[256];
-		std::set<Terminal> terminal;
+		std::list<Terminal> terminals;
 	};
 	
     volatile bool is_stop;
@@ -59,8 +58,9 @@ private:
 
     fd_set set;
     struct timeval tv;
-
-	User mUser;
+	
+	volatile bool is_setUser;
+	User mUser;	
 };
 
 

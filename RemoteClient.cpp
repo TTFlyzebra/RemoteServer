@@ -21,6 +21,7 @@ RemoteClient::RemoteClient(RemoteServer* server, ServerManager* manager, int32_t
 ,mSocket(socket)
 ,is_stop(false)
 ,is_disconnect(false)
+,is_setUser(false)
 {
     FLOGD("%s()", __func__);
     int flags = fcntl(mSocket, F_GETFL, 0);
@@ -155,7 +156,27 @@ void RemoteClient::handleData()
                 mcond_recv.wait(lock);
             }
             if(is_stop) break;
-            mManager->updataSync(&recvBuf[0], aLen);
+			struct NotifyData* notifyData = (struct NotifyData*)&recvBuf[0];
+			if(!is_setUser && notifyData->type==TYPE_TERMINAL_LIST){				
+				char* data = &recvBuf[0];
+				char temp[256] = {0};
+		        int32_t num = aLen<32?aLen:32;
+		        for (int32_t i = 0; i < num; i++) {
+		        	sprintf(temp, "%s%02x:", temp, data[i]&0xFF);
+		        }
+		        FLOGD("terminal list :%s[%d]", temp, aLen);
+				memcpy(&mUser.uid, data+8, 8);
+				int32_t start = 8;
+				while(dLen-start>0){
+					Terminal terminal;
+					memcpy(&terminal,data+8+start,8);
+					mUser.terminals.push_back(terminal);
+					start+=8;
+				}
+				is_setUser = true;
+			}else{
+				mManager->updataSync(&recvBuf[0], aLen);
+			}
             recvBuf.erase(recvBuf.begin(),recvBuf.begin()+aLen);
         }
     }
