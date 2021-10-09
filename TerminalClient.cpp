@@ -21,6 +21,7 @@ TerminalClient::TerminalClient(TerminalServer* server, ServerManager* manager, i
 ,mSocket(socket)
 ,is_stop(false)
 ,is_disconnect(false)
+,is_setTerminal(false)
 {
     FLOGD("%s()", __func__);
     mManager->registerListener(this);
@@ -65,7 +66,10 @@ int32_t TerminalClient::notify(const char* data, int32_t size)
     case TYPE_VIDEO_START:
     case TYPE_VIDEO_STOP:
     case TYPE_AUDIO_START:
-    case TYPE_AUDIO_STOP:        
+    case TYPE_AUDIO_STOP:
+	case TYPE_INPUT_TOUCH:
+	case TYPE_INPUT_KEY:
+	case TYPE_INPUT_TEXT:
         sendData(data, size);
         return 1;
     }
@@ -145,6 +149,10 @@ void TerminalClient::handleData()
                 mcond_recv.wait(lock);
             }
             if(is_stop) break;
+			if(!is_setTerminal) {
+				memcpy(mTerminal.tid, &recvBuf[0]+8, 8);	
+				is_setTerminal = true;
+			}
             mManager->updataSync(&recvBuf[0], aLen);
             recvBuf.erase(recvBuf.begin(),recvBuf.begin()+aLen);
         }

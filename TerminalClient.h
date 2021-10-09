@@ -25,6 +25,11 @@ private:
     void disConnect();
 
 private:
+	struct Terminal{
+		char tid[8];
+		char name[256];
+	};
+
     volatile bool is_stop;
     volatile bool is_disconnect;
     TerminalServer* mServer;
@@ -42,8 +47,10 @@ private:
     std::vector<char> recvBuf;
     std::mutex mlock_recv;
     std::condition_variable mcond_recv;
-};
 
+	volatile bool is_setTerminal;
+	Terminal mTerminal;
+};
 
 
 #endif //ANDROID_TERMINALCLIENT_H

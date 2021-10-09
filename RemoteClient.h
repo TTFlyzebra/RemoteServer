@@ -10,16 +10,6 @@
 #include "ServerManager.h"
 #include <set>
 
-struct Terminal{
-	char tid[8];
-};
-
-struct User {
-	char uid[8];
-	char name[256];
-	std::set<Terminal> terminal;
-};
-
 class RemoteServer;
 
 class RemoteClient:public INotify {
@@ -37,10 +27,18 @@ private:
     void sendData(const char* data, int32_t size);
     void disConnect();
 
-public:
-	User mUser;
-
 private:
+	struct Terminal{
+	char tid[8];
+	char name[256];
+	};
+
+	struct User {
+		char uid[8];
+		char name[256];
+		std::set<Terminal> terminal;
+	};
+	
     volatile bool is_stop;
     volatile bool is_disconnect;
     RemoteServer* mServer;
@@ -61,6 +59,8 @@ private:
 
     fd_set set;
     struct timeval tv;
+
+	User mUser;
 };
 
 
