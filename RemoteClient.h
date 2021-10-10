@@ -27,15 +27,10 @@ private:
     void disConnect();
 
 private:
-	struct Terminal {
-		char tid[8];
-		char name[256];
-	};
-	
 	struct User {
 		char uid[8];
 		char name[256];
-		std::list<Terminal> terminals;
+		std::list<int64_t> terminals;
 	};
 	
     volatile bool is_stop;

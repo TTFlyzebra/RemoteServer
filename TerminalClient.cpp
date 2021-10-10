@@ -60,7 +60,6 @@ int32_t TerminalClient::notify(const char* data, int32_t size)
 {
     struct NotifyData* notifyData = (struct NotifyData*)data;
     switch (notifyData->type){
-    case TYPE_HEARTBEAT_R:    
     case TYPE_HEARTBEAT_VIDEO:
     case TYPE_HEARTBEAT_AUDIO:
     case TYPE_VIDEO_START:
@@ -70,8 +69,11 @@ int32_t TerminalClient::notify(const char* data, int32_t size)
 	case TYPE_INPUT_TOUCH:
 	case TYPE_INPUT_KEY:
 	case TYPE_INPUT_TEXT:
-        sendData(data, size);
-        return 1;
+        if (strncmp(mTerminal.tid, data + 8, 8) == 0) {
+            sendData(data, size);
+            return 1;
+        }
+        return 0;
     }
     return 0;
     

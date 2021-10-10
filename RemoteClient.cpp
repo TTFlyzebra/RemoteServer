@@ -8,7 +8,7 @@
 #include <netinet/in.h>
 #include <string.h>
 #include <fcntl.h>
-
+#include <algorithm>
 #include "RemoteClient.h"
 #include "RemoteServer.h"
 #include "Config.h"
@@ -61,12 +61,21 @@ RemoteClient::~RemoteClient()
 int32_t RemoteClient::notify(const char* data, int32_t size)
 {
     struct NotifyData* notifyData = (struct NotifyData*)data;
-    switch (notifyData->type) {    
+    switch (notifyData->type) {
+    {
     case TYPE_VIDEO_DATA:
     case TYPE_AUDIO_DATA:
     case TYPE_SPSPPS_DATA:
-        sendData(data, size);
-        return 1;
+        {
+            int64_t tid;
+            memcpy(&tid, data+8, 8);
+            std::list<int64_t>::iterator it = std::find(mUser.terminals.begin(), mUser.terminals.end(), tid);
+            if(it!=mUser.terminals.end()){
+                sendData(data, size);
+            }           
+        }
+        return 0;
+    }
     }
     return 0;
 }
@@ -163,14 +172,14 @@ void RemoteClient::handleData()
 		        int32_t num = aLen<32?aLen:32;
 		        for (int32_t i = 0; i < num; i++) {
 		        	sprintf(temp, "%s%02x:", temp, data[i]&0xFF);
-		        }
-		        FLOGD("terminal list :%s[%d]", temp, aLen);
+		        }		        
 				memcpy(&mUser.uid, data+8, 8);
 				int32_t start = 8;
 				while(dLen-start>0){
-					Terminal terminal;
-					memcpy(&terminal,data+8+start,8);
-					mUser.terminals.push_back(terminal);
+                    int64_t tid = 0;
+                    memcpy(&tid,data+8+start,8);
+                    FLOGD("terminal uid: [%ld]", tid);
+					mUser.terminals.push_back(tid);
 					start+=8;
 				}
 				is_setUser = true;
