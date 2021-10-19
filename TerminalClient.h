@@ -48,8 +48,8 @@ private:
     std::mutex mlock_recv;
     std::condition_variable mcond_recv;
 
-	volatile bool is_setTerminal;
-	Terminal mTerminal;
+    volatile bool is_setTerminal;
+    Terminal mTerminal;
 };
 
 

@@ -52,6 +52,7 @@ static int32_t configureSignals() {
 int32_t main(int32_t  argc,  char*  argv[])
 {
     FLOGD("main server is start.");
+    signal(SIGPIPE, SIG_IGN);
     isStop = false;
     if (configureSignals() != 0) {
         FLOGD("configure Signals failed!");

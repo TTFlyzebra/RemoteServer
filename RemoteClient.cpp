@@ -25,9 +25,9 @@ RemoteClient::RemoteClient(RemoteServer* server, ServerManager* manager, int32_t
 {
     FLOGD("%s()", __func__);
     int flags = fcntl(mSocket, F_GETFL, 0);
-    fcntl(mSocket, F_SETFL, flags | O_NONBLOCK);        
+    fcntl(mSocket, F_SETFL, flags | O_NONBLOCK);
     //FD_ZERO(&set);
-    //FD_SET(mSocket, &set);    
+    //FD_SET(mSocket, &set);
     mManager->registerListener(this);
     recv_t = new std::thread(&RemoteClient::recvThread, this);
     send_t = new std::thread(&RemoteClient::sendThread, this);
@@ -38,7 +38,7 @@ RemoteClient::~RemoteClient()
 {
     //FD_CLR(mSocket,&set);
     mManager->unRegisterListener(this);
-    is_stop = true;    
+    is_stop = true;
     shutdown(mSocket, SHUT_RDWR);
     close(mSocket);
     {
@@ -72,7 +72,7 @@ int32_t RemoteClient::notify(const char* data, int32_t size)
             std::list<int64_t>::iterator it = std::find(mUser.terminals.begin(), mUser.terminals.end(), tid);
             if(it!=mUser.terminals.end()){
                 sendData(data, size);
-            }           
+            }
         }
         return 0;
     }
@@ -87,7 +87,7 @@ void RemoteClient::recvThread()
         //tv.tv_sec = 1;
         //tv.tv_usec = 0;
         //int32_t ret = select(mSocket + 1, &set, NULL, NULL, &tv);
-		//if (ret == 0) {
+        //if (ret == 0) {
         //    FLOGD("RemoteClient::recvThread select read ret=[%d].", ret);
         //    continue;
         //}
@@ -118,25 +118,25 @@ void RemoteClient::sendThread()
 {
     while (!is_stop) {
         std::unique_lock<std::mutex> lock (mlock_send);
-    	while(!is_stop &&sendBuf.empty()) {
-    	    mcond_send.wait(lock);
-    	}
+        while(!is_stop &&sendBuf.empty()) {
+            mcond_send.wait(lock);
+        }
         if(is_stop) break;
-    	while(!is_stop && !sendBuf.empty()){
-        	int32_t sendLen = send(mSocket,(const char*)&sendBuf[0],sendBuf.size(), 0);
-        	if(sendLen>0){
+        while(!is_stop && !sendBuf.empty()){
+            int32_t sendLen = send(mSocket,(const char*)&sendBuf[0],sendBuf.size(), 0);
+            if(sendLen>0){
                 sendBuf.erase(sendBuf.begin(),sendBuf.begin()+sendLen);
-        	}else if (sendLen < 0) {
-        	    if(errno == 11) {
+            }else if (sendLen < 0) {
+                if(errno == 11) {
                     //TODO::maybe network is slowly!
-                    FLOGE("TerminalClient->sendThread len[%d],errno[%d]",sendLen, errno);
+                    FLOGE("RemoteClient->sendThread len[%d],errno[%d]",sendLen, errno);
                     continue;
                 } else {
-                    FLOGE("TerminalClient send error, len=[%d] errno[%d]!",sendLen, errno);
-    	            is_stop = true;
+                    FLOGE("RemoteClient send error, len=[%d] errno[%d]!",sendLen, errno);
+                    is_stop = true;
                     break;
-    	        }
-        	}
+                }
+            }
         }
     }
     disConnect();
@@ -165,27 +165,27 @@ void RemoteClient::handleData()
                 mcond_recv.wait(lock);
             }
             if(is_stop) break;
-			struct NotifyData* notifyData = (struct NotifyData*)&recvBuf[0];
-			if(!is_setUser && notifyData->type==TYPE_TERMINAL_LIST){				
-				char* data = &recvBuf[0];
-				char temp[256] = {0};
-		        int32_t num = aLen<32?aLen:32;
-		        for (int32_t i = 0; i < num; i++) {
-		        	sprintf(temp, "%s%02x:", temp, data[i]&0xFF);
-		        }		        
-				memcpy(&mUser.uid, data+8, 8);
-				int32_t start = 8;
-				while(dLen-start>0){
+            struct NotifyData* notifyData = (struct NotifyData*)&recvBuf[0];
+            if(!is_setUser && notifyData->type==TYPE_TERMINAL_LIST){				
+                char* data = &recvBuf[0];
+                char temp[256] = {0};
+                int32_t num = aLen<32?aLen:32;
+                for (int32_t i = 0; i < num; i++) {
+                    sprintf(temp, "%s%02x:", temp, data[i]&0xFF);
+                }
+                memcpy(&mUser.uid, data+8, 8);
+                int32_t start = 8;
+                while(dLen-start>0){
                     int64_t tid = 0;
                     memcpy(&tid,data+8+start,8);
                     FLOGD("terminal uid: [%ld]", tid);
-					mUser.terminals.push_back(tid);
-					start+=8;
-				}
-				is_setUser = true;
-			}else{
-				mManager->updataSync(&recvBuf[0], aLen);
-			}
+                    mUser.terminals.push_back(tid);
+                    start+=8;
+                }
+                is_setUser = true;
+            }else{
+                mManager->updataSync(&recvBuf[0], aLen);
+            }
             recvBuf.erase(recvBuf.begin(),recvBuf.begin()+aLen);
         }
     }
@@ -196,7 +196,7 @@ void RemoteClient::sendData(const char* data, int32_t size)
     std::lock_guard<std::mutex> lock (mlock_send);
     if (sendBuf.size() > TERMINAL_MAX_BUFFER) {
         FLOGE("RemoteClient send buffer too max, wile clean %zu size", sendBuf.size());
-    	sendBuf.clear();
+        sendBuf.clear();
     }
     sendBuf.insert(sendBuf.end(), data, data + size);
     mcond_send.notify_one();

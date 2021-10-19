@@ -24,13 +24,12 @@ TerminalClient::TerminalClient(TerminalServer* server, ServerManager* manager, i
 ,is_setTerminal(false)
 {
     FLOGD("%s()", __func__);
+    int flags = fcntl(mSocket, F_GETFL, 0);
+    fcntl(mSocket, F_SETFL, flags | O_NONBLOCK);
     mManager->registerListener(this);
     recv_t = new std::thread(&TerminalClient::recvThread, this);
     send_t = new std::thread(&TerminalClient::sendThread, this);
-    hand_t = new std::thread(&TerminalClient::handleData, this);
-
-    int flags = fcntl(mSocket, F_GETFL, 0);
-    fcntl(mSocket, F_SETFL, flags | O_NONBLOCK);
+    hand_t = new std::thread(&TerminalClient::handleData, this);   
 }
 
 TerminalClient::~TerminalClient()
@@ -66,9 +65,9 @@ int32_t TerminalClient::notify(const char* data, int32_t size)
     case TYPE_VIDEO_STOP:
     case TYPE_AUDIO_START:
     case TYPE_AUDIO_STOP:
-	case TYPE_INPUT_TOUCH:
-	case TYPE_INPUT_KEY:
-	case TYPE_INPUT_TEXT:
+    case TYPE_INPUT_TOUCH:
+    case TYPE_INPUT_KEY:
+    case TYPE_INPUT_TEXT:
         if (strncmp(mTerminal.tid, data + 8, 8) == 0) {
             sendData(data, size);
             return 1;
@@ -104,26 +103,26 @@ void TerminalClient::sendThread()
 {
      while (!is_stop) {
         std::unique_lock<std::mutex> lock (mlock_send);
-    	while(!is_stop &&sendBuf.empty()) {
-    	    mcond_send.wait(lock);
-    	}
+        while(!is_stop &&sendBuf.empty()) {
+           mcond_send.wait(lock);
+        }
         if(is_stop) break;
-    	while(!is_stop && !sendBuf.empty()){
-    	    int32_t sendLen = send(mSocket,(const char*)&sendBuf[0],sendBuf.size(), 0);
+        while(!is_stop && !sendBuf.empty()){
+            int32_t sendLen = send(mSocket,(const char*)&sendBuf[0],sendBuf.size(), 0);
             if(sendLen>0){
                 sendBuf.erase(sendBuf.begin(),sendBuf.begin()+sendLen);
-    	    }else if (sendLen < 0) {
-    	        if(errno == 11) {
+            }else if (sendLen < 0) {
+                if(errno == 11) {
                     //TODO::maybe network is slowly!
                     FLOGE("TerminalClient->sendThread len[%d],errno[%d]",sendLen, errno);
                     continue;
                 } else {
                     FLOGE("TerminalClient send error, len=[%d] errno[%d]!",sendLen, errno);
-    	            is_stop = true;
+                    is_stop = true;
                     break;
-    	        }
-    	    }
-    	}
+                }
+            }
+        }
     }
     disConnect();
 }
@@ -151,10 +150,10 @@ void TerminalClient::handleData()
                 mcond_recv.wait(lock);
             }
             if(is_stop) break;
-			if(!is_setTerminal) {
-				memcpy(mTerminal.tid, &recvBuf[0]+8, 8);	
-				is_setTerminal = true;
-			}
+            if(!is_setTerminal) {
+                memcpy(mTerminal.tid, &recvBuf[0]+8, 8);	
+                is_setTerminal = true;
+            }
             mManager->updataSync(&recvBuf[0], aLen);
             recvBuf.erase(recvBuf.begin(),recvBuf.begin()+aLen);
         }
@@ -166,7 +165,7 @@ void TerminalClient::sendData(const char* data, int32_t size)
     std::lock_guard<std::mutex> lock (mlock_send);
     if (sendBuf.size() > TERMINAL_MAX_BUFFER) {
         FLOGE("TerminalClient send buffer too max, wile clean %zu size", sendBuf.size());
-    	sendBuf.clear();
+        sendBuf.clear();
     }
     sendBuf.insert(sendBuf.end(), data, data + size);
     mcond_send.notify_one();

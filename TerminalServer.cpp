@@ -76,7 +76,7 @@ int32_t TerminalServer::notify(const char* data, int32_t size)
 void TerminalServer::serverSocket()
 {
     FLOGD("TerminalServer serverSocket start!");
-	is_running = true;
+    is_running = true;
     struct sockaddr_in t_sockaddr;
     memset(&t_sockaddr, 0, sizeof(t_sockaddr));
     t_sockaddr.sin_family = AF_INET;

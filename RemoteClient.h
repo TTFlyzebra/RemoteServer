@@ -27,12 +27,12 @@ private:
     void disConnect();
 
 private:
-	struct User {
-		char uid[8];
-		char name[256];
-		std::list<int64_t> terminals;
-	};
-	
+    struct User {
+        char uid[8];
+        char name[256];
+        std::list<int64_t> terminals;
+    };
+
     volatile bool is_stop;
     volatile bool is_disconnect;
     RemoteServer* mServer;
@@ -53,9 +53,9 @@ private:
 
     fd_set set;
     struct timeval tv;
-	
-	volatile bool is_setUser;
-	User mUser;	
+
+    volatile bool is_setUser;
+    User mUser;
 };
 
 
