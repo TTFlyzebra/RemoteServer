@@ -26,8 +26,8 @@ RemoteClient::RemoteClient(RemoteServer* server, ServerManager* manager, int32_t
     FLOGD("%s()", __func__);
     int flags = fcntl(mSocket, F_GETFL, 0);
     fcntl(mSocket, F_SETFL, flags | O_NONBLOCK);
-    //FD_ZERO(&set);
-    //FD_SET(mSocket, &set);
+    FD_ZERO(&set);
+    FD_SET(mSocket, &set);
     mManager->registerListener(this);
     recv_t = new std::thread(&RemoteClient::recvThread, this);
     send_t = new std::thread(&RemoteClient::sendThread, this);
@@ -36,7 +36,7 @@ RemoteClient::RemoteClient(RemoteServer* server, ServerManager* manager, int32_t
 
 RemoteClient::~RemoteClient()
 {
-    //FD_CLR(mSocket,&set);
+    FD_CLR(mSocket,&set);
     mManager->unRegisterListener(this);
     is_stop = true;
     shutdown(mSocket, SHUT_RDWR);
@@ -84,15 +84,16 @@ void RemoteClient::recvThread()
 {
     char tempBuf[4096];
     while(!is_stop){
-        //tv.tv_sec = 1;
-        //tv.tv_usec = 0;
-        //int32_t ret = select(mSocket + 1, &set, NULL, NULL, &tv);
-        //if (ret == 0) {
-        //    FLOGD("RemoteClient::recvThread select read ret=[%d].", ret);
-        //    continue;
-        //}
-        //if(FD_ISSET(mSocket,&set)){
+        tv.tv_sec = 5;
+        tv.tv_usec = 0;
+        int32_t ret = select(mSocket + 1, &set, NULL, NULL, &tv);
+        if (ret == 0) {
+            //FLOGD("RemoteClient::recvThread select read ret=[%d].", ret);
+            continue;
+        }
+        if(FD_ISSET(mSocket,&set)){
             int recvLen = recv(mSocket, tempBuf, 4096, 0);
+            //FLOGD("RemoteClient->recv len[%d], errno[%d]", recvLen, errno);
             if(recvLen>0){
                 //char temp[256] = {0};
                 //int32_t num = recvLen<32?recvLen:32;
@@ -107,9 +108,11 @@ void RemoteClient::recvThread()
                 if(recvLen==0 || (!(errno==11 || errno== 0))) {
                     is_stop = true;
                     break;
+                }else{
+                    FLOGD("RemoteClient->recv len[%d], errno[%d]", recvLen, errno);
                 }
             }
-       //}
+       }
     }
     disConnect();
 }
@@ -129,7 +132,8 @@ void RemoteClient::sendThread()
             }else if (sendLen < 0) {
                 if(errno == 11) {
                     //TODO::maybe network is slowly!
-                    FLOGE("RemoteClient->sendThread len[%d],errno[%d]",sendLen, errno);
+                    FLOGE("RemoteClient->sendThread len[%d],errno[%d],bufSize[%zu]",sendLen, errno, sendBuf.size());
+                    usleep(10000);
                     continue;
                 } else {
                     FLOGE("RemoteClient send error, len=[%d] errno[%d]!",sendLen, errno);

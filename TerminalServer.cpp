@@ -21,14 +21,14 @@ TerminalServer::TerminalServer(ServerManager* manager)
 ,is_stop(false)
 {
     FLOGD("%s()", __func__);
-    mManager->registerListener(this);
+    //mManager->registerListener(this);
     server_t = new std::thread(&TerminalServer::serverSocket, this);
     remove_t = new std::thread(&TerminalServer::removeClient, this);
 }
 
 TerminalServer::~TerminalServer()
 {
-    mManager->unRegisterListener(this);
+    //mManager->unRegisterListener(this);
     is_stop = true;
     shutdown(server_socket, SHUT_RDWR);
     close(server_socket);
@@ -60,14 +60,14 @@ int32_t TerminalServer::notify(const char* data, int32_t size)
     case TYPE_SPSPPS_DATA:
         return 0;
     default:
-        {
+        /*{
             char temp[256] = {0};
             int num = size<24?size:24;
             for (int32_t i = 0; i < num; i++) {
                 sprintf(temp, "%s%02x:", temp, data[i]&0xFF);
             }
             FLOGE("notify:->%s", temp);
-        }
+        }*/
         return 0;
     }
     return 0;

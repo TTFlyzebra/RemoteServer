@@ -26,6 +26,8 @@ TerminalClient::TerminalClient(TerminalServer* server, ServerManager* manager, i
     FLOGD("%s()", __func__);
     int flags = fcntl(mSocket, F_GETFL, 0);
     fcntl(mSocket, F_SETFL, flags | O_NONBLOCK);
+    FD_ZERO(&set);
+    FD_SET(mSocket, &set);
     mManager->registerListener(this);
     recv_t = new std::thread(&TerminalClient::recvThread, this);
     send_t = new std::thread(&TerminalClient::sendThread, this);
@@ -34,6 +36,7 @@ TerminalClient::TerminalClient(TerminalServer* server, ServerManager* manager, i
 
 TerminalClient::~TerminalClient()
 {
+    FD_CLR(mSocket,&set);
     mManager->unRegisterListener(this);
     is_stop = true;
     shutdown(mSocket, SHUT_RDWR);
@@ -82,18 +85,28 @@ void TerminalClient::recvThread()
 {
     char tempBuf[4096];
     while(!is_stop){
-        memset(tempBuf,0,4096);
-        int recvLen = recv(mSocket, tempBuf, 4096, 0);
-        //FLOGD("TerminalClient recv:len=[%d], errno=[%d]\n%s", recvLen, errno, tempBuf);
-        if(recvLen>0){
-            std::lock_guard<std::mutex> lock (mlock_recv);
-            recvBuf.insert(recvBuf.end(), tempBuf, tempBuf+recvLen);
-            mcond_recv.notify_one();
-        }else if (recvLen <= 0) {
-            if(recvLen==0 || (!(errno==11 || errno== 0))) {
-                is_stop = true;
-                break;
-            }
+         tv.tv_sec = 5;
+         tv.tv_usec = 0;
+         int32_t ret = select(mSocket + 1, &set, NULL, NULL, &tv);
+         if (ret == 0) {
+             //FLOGD("TerminalClient::recvThread select read ret=[%d].", ret);
+             continue;
+         }
+         if(FD_ISSET(mSocket,&set)){
+             int recvLen = recv(mSocket, tempBuf, 4096, 0);
+             //FLOGD("TerminalClient->recv len[%d], errno[%d]", recvLen, errno);
+             if(recvLen>0){
+                 std::lock_guard<std::mutex> lock (mlock_recv);
+                 recvBuf.insert(recvBuf.end(), tempBuf, tempBuf+recvLen);
+                 mcond_recv.notify_one();
+             }else if (recvLen <= 0) {
+                 if(recvLen==0 || (!(errno==11 || errno== 0))) {
+                     is_stop = true;
+                     break;
+                 }else{
+                    FLOGD("TerminalClient->recv len[%d], errno[%d]", recvLen, errno);
+                }
+             }
         }
     }
     disConnect();
@@ -114,7 +127,8 @@ void TerminalClient::sendThread()
             }else if (sendLen < 0) {
                 if(errno == 11) {
                     //TODO::maybe network is slowly!
-                    FLOGE("TerminalClient->sendThread len[%d],errno[%d]",sendLen, errno);
+                    FLOGE("TerminalClient->sendThread len[%d],errno[%d], bufSize[%zu]",sendLen, errno, sendBuf.size());
+                    usleep(10000);
                     continue;
                 } else {
                     FLOGE("TerminalClient send error, len=[%d] errno[%d]!",sendLen, errno);

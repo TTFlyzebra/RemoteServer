@@ -20,7 +20,7 @@ RemoteServer::RemoteServer(ServerManager* manager)
 ,is_stop(false)
 {
     FLOGD("%s()", __func__);
-    mManager->registerListener(this);
+    //mManager->registerListener(this);
     server_t = new std::thread(&RemoteServer::serverSocket, this);
     remove_t = new std::thread(&RemoteServer::removeClient, this);
 }
@@ -28,7 +28,7 @@ RemoteServer::RemoteServer(ServerManager* manager)
 RemoteServer::~RemoteServer()
 {
     FLOGD("%s()", __func__);
-    mManager->unRegisterListener(this);
+    //mManager->unRegisterListener(this);
     is_stop = true;
     shutdown(server_socket, SHUT_RDWR);
     close(server_socket);

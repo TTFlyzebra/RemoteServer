@@ -5,6 +5,8 @@
 #ifndef ANDROID_TERMINALCLIENT_H
 #define ANDROID_TERMINALCLIENT_H
 
+#include <sys/select.h>
+#include <sys/time.h>
 #include "ServerManager.h"
 
 class TerminalServer;
@@ -50,6 +52,9 @@ private:
 
     volatile bool is_setTerminal;
     Terminal mTerminal;
+
+    fd_set set;
+    struct timeval tv;
 };
 
 
