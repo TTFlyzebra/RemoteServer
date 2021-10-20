@@ -25,6 +25,7 @@ private:
     void handleData();
     void sendData(const char* data, int32_t size);
     void disConnect();
+    void timerThread();
 
 private:
 	struct Terminal{
@@ -55,6 +56,9 @@ private:
 
     fd_set set;
     struct timeval tv;
+
+    std::thread *time_t;
+    volatile int64_t lastHeartBeat;
 };
 
 

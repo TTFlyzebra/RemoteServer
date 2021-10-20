@@ -23,7 +23,11 @@ TerminalClient::TerminalClient(TerminalServer* server, ServerManager* manager, i
 ,is_disconnect(false)
 ,is_setTerminal(false)
 {
-    FLOGD("%s() connect...", __func__);
+    FLOGD("%s()", __func__);
+    struct timeval mTime;
+    gettimeofday(&mTime, NULL);
+    lastHeartBeat = mTime.tv_sec*1000000 + mTime.tv_usec;
+
     int flags = fcntl(mSocket, F_GETFL, 0);
     fcntl(mSocket, F_SETFL, flags | O_NONBLOCK);
     FD_ZERO(&set);
@@ -31,7 +35,8 @@ TerminalClient::TerminalClient(TerminalServer* server, ServerManager* manager, i
     mManager->registerListener(this);
     recv_t = new std::thread(&TerminalClient::recvThread, this);
     send_t = new std::thread(&TerminalClient::sendThread, this);
-    hand_t = new std::thread(&TerminalClient::handleData, this);   
+    hand_t = new std::thread(&TerminalClient::handleData, this);
+    time_t = new std::thread(&TerminalClient::timerThread, this);
 }
 
 TerminalClient::~TerminalClient()
@@ -52,9 +57,11 @@ TerminalClient::~TerminalClient()
     recv_t->join();
     send_t->join();
     hand_t->join();
+    time_t->join();
     delete recv_t;
     delete send_t;
     delete hand_t;
+    delete time_t;
     
     int64_t tid;
     memcpy(&tid, &mTerminal.tid, 8);
@@ -184,15 +191,26 @@ void TerminalClient::handleData()
             while(!is_stop && (aLen>recvBuf.size())) {
                 mcond_recv.wait(lock);
             }
-            if(is_stop) break;
-            if(!is_setTerminal) {
-                memcpy(mTerminal.tid, &recvBuf[0]+8, 8);	
-                is_setTerminal = true;
-                int64_t tid;
-                memcpy(&tid, &mTerminal.tid, 8);
-                FLOGD("TerminalClient uid=[%ld]", tid);
-            }
+            if(is_stop) break;            
             mManager->updataSync(&recvBuf[0], aLen);
+            const char* data = &recvBuf[0];
+            struct NotifyData* notifyData = (struct NotifyData*)&recvBuf[0];
+            switch (notifyData->type){
+            case TYPE_HEARTBEAT_T:
+                {
+                    struct timeval mTime;
+                    gettimeofday(&mTime, NULL);
+                    lastHeartBeat = mTime.tv_sec*1000000 + mTime.tv_usec;
+                }
+                if(!is_setTerminal) {
+                    memcpy(mTerminal.tid, &recvBuf[0]+8, 8);
+                    is_setTerminal = true;
+                    int64_t tid;
+                    memcpy(&tid, &mTerminal.tid, 8);
+                    FLOGD("TerminalClient uid=[%ld]", tid);
+                }
+                break;
+            }
             recvBuf.erase(recvBuf.begin(),recvBuf.begin()+aLen);
         }
     }
@@ -216,4 +234,32 @@ void TerminalClient::disConnect()
         mServer->disconnectClient(this);
     }
 }
+
+void TerminalClient::timerThread()
+{
+    int32_t heart_count = 0;
+    while(!is_stop){
+        for(int i=0;i<10;i++){
+            usleep(100000);
+             if(is_stop) return;
+        }
+
+        //check heartbeat.
+        heart_count++;
+        if(heart_count > 5){
+            heart_count = 0;
+            struct timeval mTime;
+            gettimeofday(&mTime, NULL);
+            int64_t currentTime = mTime.tv_sec*1000000 + mTime.tv_usec;
+            if(currentTime - lastHeartBeat > 10000000) {
+                int64_t tid;
+                memcpy(&tid, &mTerminal.tid, 8);
+                FLOGD("TerminalClient [%ld] timeout will close!", tid);
+                disConnect();
+                return;
+            }
+        }
+    }
+}
+
 
