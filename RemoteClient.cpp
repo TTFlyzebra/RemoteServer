@@ -55,7 +55,10 @@ RemoteClient::~RemoteClient()
     delete recv_t;
     delete send_t;
     delete hand_t;
-    FLOGD("%s()", __func__);
+
+    int64_t uid;
+    memcpy(&uid, &mUser.uid, 8);
+    FLOGD("%s()-[%ld]", __func__, uid);
 }
 
 int32_t RemoteClient::notify(const char* data, int32_t size)
@@ -84,7 +87,7 @@ void RemoteClient::recvThread()
 {
     char tempBuf[4096];
     while(!is_stop){
-        tv.tv_sec = 5;
+        tv.tv_sec = 2;
         tv.tv_usec = 0;
         int32_t ret = select(mSocket + 1, &set, NULL, NULL, &tv);
         if (ret == 0) {
@@ -120,28 +123,46 @@ void RemoteClient::recvThread()
 void RemoteClient::sendThread()
 {
     while (!is_stop) {
-        std::unique_lock<std::mutex> lock (mlock_send);
-        while(!is_stop &&sendBuf.empty()) {
-            mcond_send.wait(lock);
+        char* sendData = nullptr;
+        int32_t sendSize = 0;
+        {
+            std::unique_lock<std::mutex> lock (mlock_send);
+            while(!is_stop &&sendBuf.empty()) {
+                mcond_send.wait(lock);
+            }
+            if(is_stop) break;
+            sendSize = sendBuf.size();
+            if(sendSize > 0){
+                sendData = (char *)malloc(sendSize * sizeof(char));
+                memcpy(sendData, (char*)&sendBuf[0], sendSize);
+                sendBuf.clear();
+            }
         }
-        if(is_stop) break;
-        while(!is_stop && !sendBuf.empty()){
-            int32_t sendLen = send(mSocket,(const char*)&sendBuf[0],sendBuf.size(), 0);
-            if(sendLen>0){
-                sendBuf.erase(sendBuf.begin(),sendBuf.begin()+sendLen);
-            }else if (sendLen < 0) {
-                if(errno == 11) {
-                    //TODO::maybe network is slowly!
-                    FLOGE("RemoteClient->sendThread len[%d],errno[%d],bufSize[%zu]",sendLen, errno, sendBuf.size());
-                    usleep(10000);
-                    continue;
-                } else {
-                    FLOGE("RemoteClient send error, len=[%d] errno[%d]!",sendLen, errno);
-                    is_stop = true;
-                    break;
+        int32_t sendLen = 0;
+        while(!is_stop && (sendLen < sendSize)){
+            tv.tv_sec = 2;
+            tv.tv_usec = 0;
+            int32_t ret = select(mSocket + 1, NULL, &set, NULL, &tv);
+            if (ret == 0) {
+                //FLOGD("RemoteClient::sendThread select write ret=[%d].", ret);
+                continue;
+            }
+            if(FD_ISSET(mSocket,&set)){
+                int32_t ret = send(mSocket,(const char*)sendData+sendLen, sendSize - sendLen, 0);
+                if (ret <= 0) {
+                     if(ret==0 || (!(errno==11 || errno== 0))) {
+                        shutdown(mSocket, SHUT_RDWR);
+                        close(mSocket);
+                        break;
+                    } else {
+                        FLOGD("RemoteClient->send len[%d], errno[%d]", ret, errno);
+                    }
+                }else{
+                    sendLen+=ret;
                 }
             }
         }
+        if(sendData != nullptr) free(sendData);
     }
     disConnect();
 }
@@ -172,17 +193,15 @@ void RemoteClient::handleData()
             struct NotifyData* notifyData = (struct NotifyData*)&recvBuf[0];
             if(!is_setUser && notifyData->type==TYPE_TERMINAL_LIST){				
                 char* data = &recvBuf[0];
-                char temp[256] = {0};
-                int32_t num = aLen<32?aLen:32;
-                for (int32_t i = 0; i < num; i++) {
-                    sprintf(temp, "%s%02x:", temp, data[i]&0xFF);
-                }
                 memcpy(&mUser.uid, data+8, 8);
+                int64_t uid;
+                memcpy(&uid, &mUser.uid, 8);
+                FLOGD("RemoteClient uid=[%ld]", uid);
                 int32_t start = 8;
                 while(dLen-start>0){
                     int64_t tid = 0;
                     memcpy(&tid,data+8+start,8);
-                    FLOGD("terminal uid: [%ld]", tid);
+                    //FLOGD("terminal uid: [%ld]", tid);
                     mUser.terminals.push_back(tid);
                     start+=8;
                 }
