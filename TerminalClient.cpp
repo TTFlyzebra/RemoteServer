@@ -251,7 +251,7 @@ void TerminalClient::timerThread()
             struct timeval mTime;
             gettimeofday(&mTime, NULL);
             int64_t currentTime = mTime.tv_sec*1000000 + mTime.tv_usec;
-            if(currentTime - lastHeartBeat > 10000000) {
+            if(currentTime - lastHeartBeat > 30000000) {
                 int64_t tid;
                 memcpy(&tid, &mTerminal.tid, 8);
                 FLOGD("TerminalClient [%ld] timeout will close!", tid);

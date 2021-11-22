@@ -217,7 +217,7 @@ void RemoteClient::handleData()
 void RemoteClient::sendData(const char* data, int32_t size)
 {
     std::lock_guard<std::mutex> lock (mlock_send);
-    if (sendBuf.size() > TERMINAL_MAX_BUFFER) {
+    if (sendBuf.size() > TERMINAL_MAX_BUFFER * 10) {
         FLOGE("RemoteClient send buffer too max, wile clean %zu size", sendBuf.size());
         sendBuf.clear();
     }
